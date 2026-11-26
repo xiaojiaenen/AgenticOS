@@ -29,9 +29,20 @@ from sqlalchemy import bindparam, text
 
 logger = logging.getLogger("agenticos.knowledge.pgvector")
 
-#: connection 级探测缓存（id(conn) → bool），避免每次查询都 probe
-_probe_cache: dict[int, bool] = {}
+#: 连接级探测缓存（bind 目标 → bool），避免每次查询都 probe。
+#: 旧实现用 ``id(db)``（session 对象地址）—— SQLAlchemy session 是短生命周期的，
+#: 每次检索新建 session 都会漏缓存，实际每次查询仍跑 2 条元数据 SQL。
+_probe_cache: dict[tuple, bool] = {}
 _probe_lock = threading.Lock()
+
+
+def _probe_key(db) -> tuple:
+    """用连接目标（方言 + URL）而非 session 对象地址做缓存键。"""
+    try:
+        bind = db.get_bind()
+        return (bind.dialect.name, str(bind.url))
+    except Exception:  # noqa: BLE001 —— mock/异常场景退化为按对象身份
+        return ("unknown", id(db))
 
 
 def pgvector_available(db) -> bool:
@@ -42,7 +53,7 @@ def pgvector_available(db) -> bool:
     2. ``'vector'`` 类型注册存在（``pg_type`` 查得到，即扩展已建）；
     3. ``kb_chunks.embedding`` 的数据类型是 vector（存量库未迁移 → False）。
     """
-    key = id(db)
+    key = _probe_key(db)
     with _probe_lock:
         cached = _probe_cache.get(key)
     if cached is not None:

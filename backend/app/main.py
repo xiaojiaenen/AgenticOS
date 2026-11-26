@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 # 在读取 Settings 之前，将 .env 加载到 os.environ
-# 这样 wuwei 等直接读 os.environ 的库也能拿到配置
+# 让只认 os.environ 的第三方库也能拿到配置
 #
 # override=False：已存在的环境变量优先于 .env。
 #  - 容器/CI 注入的环境变量必须能覆盖 .env 中的开发默认值；
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 # Ensure process env matches Settings so libraries that only read os.environ
-# (wuwei LLMGateway, etc.) use the same backend/.env values.
+# use the same backend/.env values.
 if settings.openai_api_key:
     os.environ["OPENAI_API_KEY"] = settings.openai_api_key
 if settings.openai_base_url:
@@ -135,7 +135,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # LLM 闸释放钩子：进程退出时归还仍持有的全局槽位。
     # 正常情况下 slot() 的 finally 已经释放，这里是崩溃/取消路径的兜底。
     try:
-        llm_gate.shutdown()
+        await llm_gate.shutdown()
     except Exception:
         logger.warning("Failed to release LLM gate slots on shutdown", exc_info=True)
     from app.services.otel_service import shutdown_otel

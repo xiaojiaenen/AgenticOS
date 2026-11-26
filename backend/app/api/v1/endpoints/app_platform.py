@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import get_db, require_perm
 from app.db.models import AppModel, AppUserModel, UserModel
 from app.schemas.app_platform import (
     ManifestDraftRequest,
@@ -285,7 +285,7 @@ def delete_record(
 
 @router.post("/admin/apps", summary="创建应用（secret 明文仅本次返回）")
 def create_app(
-    payload: AppCreateRequest, request: Request, db: Session = Depends(get_db), admin: UserModel = Depends(require_admin)
+    payload: AppCreateRequest, request: Request, db: Session = Depends(get_db), admin: UserModel = Depends(require_perm("gallery:approve"))
 ) -> dict[str, Any]:
     if not _SLUG_PATTERN.match(payload.slug):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="slug 只允许小写字母/数字/连字符")
@@ -301,14 +301,14 @@ def create_app(
 
 
 @router.get("/admin/apps", summary="应用列表")
-def list_apps(db: Session = Depends(get_db), _admin: UserModel = Depends(require_admin)) -> dict[str, Any]:
+def list_apps(db: Session = Depends(get_db), _admin: UserModel = Depends(require_perm("gallery:approve"))) -> dict[str, Any]:
     apps = list(db.scalars(select(AppModel).order_by(AppModel.created_at.desc())).all())
     return {"items": [_serialize_app(a) for a in apps], "count": len(apps)}
 
 
 @router.post("/admin/apps/{app_id}/manifest", summary="提交新版本 manifest（校验 → 生成 plan → pending）")
 def submit_manifest(
-    app_id: str, payload: ManifestSubmitRequest, request: Request, db: Session = Depends(get_db), admin: UserModel = Depends(require_admin)
+    app_id: str, payload: ManifestSubmitRequest, request: Request, db: Session = Depends(get_db), admin: UserModel = Depends(require_perm("gallery:approve"))
 ) -> dict[str, Any]:
     app = _get_app_or_404(db, app_id)
     errors = validate_manifest(payload.manifest)
@@ -326,7 +326,7 @@ def submit_manifest(
 
 
 @router.get("/admin/apps/{app_id}/plan", summary="查看当前候选版本相对生效版本的变更计划")
-def get_plan(app_id: str, db: Session = Depends(get_db), _admin: UserModel = Depends(require_admin)) -> dict[str, Any]:
+def get_plan(app_id: str, db: Session = Depends(get_db), _admin: UserModel = Depends(require_perm("gallery:approve"))) -> dict[str, Any]:
     app = _get_app_or_404(db, app_id)
     if not app.pending_manifest_json:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="没有待审批的 manifest 版本")
@@ -337,7 +337,7 @@ def get_plan(app_id: str, db: Session = Depends(get_db), _admin: UserModel = Dep
 
 @router.post("/admin/apps/{app_id}/approve", summary="批准候选版本（apply 收紧后的 plan，落审计）")
 def approve_manifest(
-    app_id: str, payload: ManifestApproveRequest, request: Request, db: Session = Depends(get_db), admin: UserModel = Depends(require_admin)
+    app_id: str, payload: ManifestApproveRequest, request: Request, db: Session = Depends(get_db), admin: UserModel = Depends(require_perm("gallery:approve"))
 ) -> dict[str, Any]:
     app = _get_app_or_404(db, app_id)
     candidate = json.loads(app.pending_manifest_json) if app.pending_manifest_json else None
@@ -362,7 +362,7 @@ def approve_manifest(
 
 @router.post("/admin/apps/{app_id}/reject", summary="拒绝候选版本")
 def reject_manifest(
-    app_id: str, payload: ManifestRejectRequest, request: Request, db: Session = Depends(get_db), admin: UserModel = Depends(require_admin)
+    app_id: str, payload: ManifestRejectRequest, request: Request, db: Session = Depends(get_db), admin: UserModel = Depends(require_perm("gallery:approve"))
 ) -> dict[str, Any]:
     app = _get_app_or_404(db, app_id)
     try:
@@ -379,7 +379,7 @@ def reject_manifest(
 @router.put("/admin/apps/{app_id}/members/{app_user_id}", summary="设置应用成员角色（实时生效，不改令牌）")
 def set_member_roles(
     app_id: str, app_user_id: int, payload: MemberRolesRequest, request: Request,
-    db: Session = Depends(get_db), admin: UserModel = Depends(require_admin),
+    db: Session = Depends(get_db), admin: UserModel = Depends(require_perm("gallery:approve")),
 ) -> dict[str, Any]:
     app = _get_app_or_404(db, app_id)
     user = db.get(AppUserModel, app_user_id)
@@ -549,7 +549,7 @@ async def draft_manifest_ai(
     payload: ManifestDraftRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("gallery:approve")),
 ) -> dict[str, Any]:
     """网站应用化 2.0 的 AI 生成链路：业务描述 → 需求文档 + manifest 草稿。
 

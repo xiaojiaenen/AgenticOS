@@ -47,8 +47,10 @@ def estimate_cost(
         if model and model.startswith(key):
             price_in, price_out = value
             break
-    prompt = usage.get("prompt_tokens", 0) / 1_000_000
-    completion = usage.get("completion_tokens", 0) / 1_000_000
+    # 兼容两套 usage 键名：网关原生 prompt_tokens/completion_tokens 与
+    # LangChain / DeepAgents 的 input_tokens/output_tokens（_UsageTracker.snapshot）。
+    prompt = usage.get("prompt_tokens", usage.get("input_tokens", 0)) / 1_000_000
+    completion = usage.get("completion_tokens", usage.get("output_tokens", 0)) / 1_000_000
     return prompt * price_in + completion * price_out
 
 

@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.roles import is_admin_like, CAP_DANGEROUS
-from app.api.deps import get_current_user, get_db, require_admin, require_capability
+from app.api.deps import get_current_user, get_db, require_capability, require_perm
 from app.core.data_path import WEBSITES_DIR, _parse_dir_name
 from app.db.models import KBDocumentModel, KnowledgeBaseModel, UserModel
 
@@ -229,7 +229,7 @@ async def list_queue_tasks(
     limit: int = 50,
     status_filter: Optional[str] = None,
     name_filter: Optional[str] = None,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("settings:edit")),
 ):
     """运维台任务列表（按提交时间倒序 + 当前状态）。
 
@@ -263,24 +263,22 @@ async def list_queue_tasks(
 
 @router.get("/stats", response_model=QueueStatsResponse)
 async def queue_stats(
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("settings:edit")),
 ):
     """队列深度 + 近期任务状态分布（运维台顶栏）。"""
     from app.services.task_queue import queue_stats as _stats
 
     try:
         data = await _stats()
-    except Exception:
-        import logging as _logging
-
-        _logging.getLogger("agenticos.tasks").warning(
-            "queue_stats failed", exc_info=True)
-        raise
     except Exception as e:
+        # 与 list_queue_tasks / submit_task 同一套异常映射：
+        # 无 Redis → 503 + 可读提示；其它异常 → 500。
+        # 原先这里有两个连续的 except Exception，第一个 raise 后第二个永远
+        # 不可达，导致任何异常（含 Redis 不可达）都直接 500。
         if _is_redis_unavailable(e):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="任务队列不可用（无法连接 Redis）",
+                detail="任务队列不可用（无法连接 Redis），请启动 Redis 或配置 REDIS_URL",
             ) from e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

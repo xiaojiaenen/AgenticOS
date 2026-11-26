@@ -61,6 +61,23 @@ _MAX_IMAGES_PER_TURN = 4
 
 _logger = logging.getLogger("agent")
 
+
+def _read_image_data_url(file_path: str, ext: str) -> tuple[str | None, str | None]:
+    """同步读取单张图片并编码成 data URL（在线程里调用，别堵事件循环）。
+
+    返回 ``(data_url, skip_reason)``：成功时 ``data_url`` 非空；失败/超限时
+    ``skip_reason`` 是给用户的说明（不含文件名，文件名由调用方拼）。
+    """
+    try:
+        raw = Path(file_path).read_bytes()
+    except OSError as exc:
+        return None, f"读取失败：{exc}"
+    if len(raw) > _MAX_IMAGE_BYTES:
+        return None, "超过 8MB"
+    media = _IMAGE_MEDIA_TYPES.get(ext, "image/png")
+    return f"data:{media};base64,{base64.b64encode(raw).decode('ascii')}", None
+
+
 # M6-A8：LLM mock 模式的固定响应。usage 数字是写死的常量而非真实计费数据，
 # 压测只关心吞吐与延迟口径，不解读 token 数（README 有明确说明）。
 _LLM_MOCK_RESPONSE = "mock response"
@@ -114,11 +131,25 @@ class _RunState:
     读写，显式对象比 nonlocal 链条更清楚。
     """
 
-    collected_text: str = ""
+    # 逐帧追加正文用 list，避免 str += 在长输出（网站/PPT 代码可达几十 KB）
+    # 上产生 O(N²) 拷贝；collected_text 属性按需 join 并缓存，读侧无需改动。
+    _text_parts: list[str] = field(default_factory=list)
+    _text_cache: str = ""
     saw_text_delta: bool = False
     tool_names: list[str] = field(default_factory=list)
     usage_recorded: bool = False
     turn_total_tokens: int = 0
+
+    @property
+    def collected_text(self) -> str:
+        if len(self._text_parts) != getattr(self, "_text_parts_len", 0):
+            self._text_cache = "".join(self._text_parts)
+            self._text_parts_len = len(self._text_parts)
+        return self._text_cache
+
+    def append_text(self, text: str) -> None:
+        if text:
+            self._text_parts.append(text)
 
 
 class StreamOrchestrator:
@@ -461,7 +492,7 @@ class StreamOrchestrator:
             + f"\n\n---\n\n{request.message}"
         )
 
-    def _build_user_input(self, message: str, request: AgentStreamRequest) -> "str | Any":
+    async def _build_user_input(self, message: str, request: AgentStreamRequest) -> "str | Any":
         """构造发给 agent 的最终输入：纯文本 str，或带图片的 HumanMessage。
 
         图片附件不再走「路径描述 + file_to_md」的间接路线 —— 那条路线
@@ -489,17 +520,13 @@ class StreamOrchestrator:
             if len(images) >= _MAX_IMAGES_PER_TURN:
                 skipped.append(f.filename)
                 continue
-            try:
-                path = Path(f.file_path)
-                raw = path.read_bytes()
-            except OSError as exc:
-                skipped.append(f"{f.filename}（读取失败：{exc}）")
+            # 图片读盘 + base64 编码是同步 IO（单图 ≤8MB、最多 4 张），放线程跑。
+            data_url, skip_reason = await asyncio.to_thread(
+                _read_image_data_url, f.file_path, ext
+            )
+            if skip_reason is not None:
+                skipped.append(f"{f.filename}（{skip_reason}）")
                 continue
-            if len(raw) > _MAX_IMAGE_BYTES:
-                skipped.append(f"{f.filename}（超过 8MB）")
-                continue
-            media = _IMAGE_MEDIA_TYPES.get(ext, "image/png")
-            data_url = f"data:{media};base64,{base64.b64encode(raw).decode('ascii')}"
             images.append(data_url)
 
         if skipped:
@@ -1155,9 +1182,13 @@ class StreamOrchestrator:
             if user is not None:
                 from app.services.quota_service import check_daily_quota
 
-                check_daily_quota(user.id, role=user.role)
+                # 每日配额读 DB（同步 IO）——放到线程里跑，别堵首 token 前的事件循环。
+                await asyncio.to_thread(check_daily_quota, user.id, role=user.role)
 
-        agent = self._get_agent(runtime_profile)
+        # 组装 Agent 会读磁盘（skills / profile）、构造网关，属同步 IO —— 同样挪到线程。
+        # _get_agent 内部无 event-loop 依赖（_build_tool_registry 的 to_thread 只包 handler，
+        # 构建本身同步），放到线程里安全。
+        agent = await asyncio.to_thread(self._get_agent, runtime_profile)
 
         # LLMOps 运行追踪：本 run 的步骤瀑布收集器（纯内存，事件循环里追加，
         # run 结束的 finally 里落库 —— 失败/断开也能拿到完整 trace）。
@@ -1332,7 +1363,7 @@ class StreamOrchestrator:
                 # message 已包含记忆注入或设计目录注入。文件附件在此统一处理：
                 # 文本文件追加路径描述；图片直接进多模态 content_parts
                 #（支持视觉的模型能真的看到图，而不是只能看路径字符串）。
-                user_message = self._build_user_input(message, request)
+                user_message = await self._build_user_input(message, request)
                 _ctx_msgs = getattr(getattr(session, "context", None), "_messages", [])
                 _logger.info(f"produce_events: starting, user_msg_len={len(user_message)}, context_msgs={len(_ctx_msgs)}")
                 # M6-A8：LLM mock 模式（压测专用，LLM_MOCK_ENABLED，默认关闭）。
@@ -1534,7 +1565,7 @@ class StreamOrchestrator:
                         if event.type == "text_delta":
                             first_text_delta = not state.saw_text_delta
                             state.saw_text_delta = True
-                            state.collected_text += event.data.get("content", "")
+                            state.append_text(event.data.get("content", ""))
                             if ppt_mode:
                                 if first_text_delta:
                                     yield {
@@ -1545,8 +1576,12 @@ class StreamOrchestrator:
                                             "label": "正在生成 PPT 内容与版式",
                                         },
                                     }
-                                # PPT 模式不转发 text_delta（LLM 思考文本），但继续处理其他事件
-                                # 不 continue — 让 tool_start、tool_results、reasoning 等事件正常处理
+                                # PPT 模式不转发 text_delta（LLM 思考文本）到聊天气泡；
+                                # 文本仍累计到 state.collected_text 用于用量记账。
+                                # 只跳过这一条事件的 SSE 映射，不影响后续
+                                # tool_start / tool_results / reasoning 等事件。
+                                runtime_task = asyncio.create_task(runtime_queue.get())
+                                continue
                             if not ppt_mode and first_text_delta:
                                 yield {
                                     "event": "run_status",

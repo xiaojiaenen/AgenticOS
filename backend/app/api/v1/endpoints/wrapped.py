@@ -11,7 +11,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_perm
 from app.core.timezone import app_now
 from app.db.models import UserModel
 from app.services.wrapped_service import compute_wrapped, years_with_data
@@ -44,7 +44,7 @@ def get_wrapped(
 async def admin_send_wrapped(
     year: int | None = Query(default=None, description="留空=上一年"),
     user_id: int | None = Query(default=None, description="留空=全体活跃用户；指定=仅该用户"),
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("announcement:create")),
 ) -> dict:
     from app.services.notification_service import dispatch_annual_wrapped
 

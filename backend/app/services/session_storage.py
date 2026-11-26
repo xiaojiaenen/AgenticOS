@@ -26,6 +26,75 @@ def _loads(value: str | None, default: Any) -> Any:
         return default
 
 
+def _message_from_row(row, Message) -> Any | None:
+    """从 agent_messages 行重建 Message：结构化列优先，JSON 回退。
+
+    阶段一双写灰度：新行结构化列齐全直接用；迁移未覆盖/老行
+    role 为空时回退解析 message_json，并顺手清理 legacy null 字段。
+    """
+    from app.services.agent.native.types import ToolCall as NativeToolCall
+    from app.services.agent.native.types import FunctionCall
+
+    raw_json = row.message_json
+    if not getattr(row, "role", None):
+        if not raw_json:
+            return None
+        raw = raw_json
+        if '"tool_calls": null' in raw:
+            raw = raw.replace('"tool_calls": null', '"tool_calls": []')
+        if '"reasoning_content": null' in raw:
+            raw = raw.replace('"reasoning_content": null', '"reasoning_content": ""')
+        try:
+            return Message.model_validate_json(raw)
+        except Exception:
+            return None
+
+    # 结构化列重建
+    tool_calls = []
+    for tc in _loads(getattr(row, "tool_calls_json", None), []) or []:
+        try:
+            fn = tc.get("function") or {}
+            tool_calls.append(NativeToolCall(
+                id=str(tc.get("id") or ""),
+                type="function",
+                function=FunctionCall(
+                    name=str(fn.get("name") or tc.get("name") or ""),
+                    arguments=fn.get("arguments") if isinstance(fn.get("arguments"), dict) else {},
+                ),
+            ))
+        except Exception:  # noqa: BLE001 - 单条坏工具调用不影响整条消息
+            continue
+    payload = {
+        "id": row.message_id or str(row.id),
+        "role": row.role,
+        "content": row.content_text or "",
+        "content_parts": _loads(getattr(row, "content_parts_json", None), []) or [],
+        "reasoning_content": getattr(row, "reasoning_text", None) or "",
+        "tool_calls": tool_calls,
+        "tool_call_id": getattr(row, "tool_call_id", None),
+        "name": getattr(row, "name", None),
+        "metadata": _loads(getattr(row, "metadata_json", None), {}) or {},
+    }
+    # status 列是结构化列的默认 "success"：老数据/非工具消息没有显式失败态，
+    # 一律当作默认值。只有显式 "error" 才覆盖 metadata.tool_outcome —— 否则
+    # 默认 "success" 会把写入端已记下的失败态抹掉（刷新后失败工具"变绿"）。
+    # 写入端（engine.py _sync_context）现在会把 outcome 同时写进 status 列和
+    # metadata.tool_outcome，这里只需要在 error 时同步，保证两个来源一致。
+    row_status = getattr(row, "status", None)
+    if row_status and row_status != "success":
+        payload["metadata"]["tool_outcome"] = {"status": row_status}
+    try:
+        return Message.model_validate(payload)
+    except Exception:
+        # 结构化解析失败再回退 JSON（双写灰度安全网）
+        if raw_json:
+            try:
+                return Message.model_validate_json(raw_json)
+            except Exception:
+                pass
+        return None
+
+
 def _dumps(value: Any) -> str:
     """序列化会话状态。
 
@@ -440,17 +509,9 @@ class DatabaseAgentStorage:
                     .order_by(AgentMessageModel.id.asc())
                 ).all()
                 for message in messages:
-                    # wuwei 2.1 的 BaseMessage 严格验证 tool_calls 不能为 null，
-                    # 但旧数据或 LLM 返回可能存储了 "tool_calls": null，清理后再反序列化。
-                    raw = message.message_json
-                    if '"tool_calls": null' in raw:
-                        raw = raw.replace('"tool_calls": null', '"tool_calls": []')
-                    if '"reasoning_content": null' in raw:
-                        raw = raw.replace('"reasoning_content": null', '"reasoning_content": ""')
-                    try:
-                        parsed = Message.model_validate_json(raw)
-                    except Exception as e:
-                        _logger.debug("Skipping unparseable message in session %s: %s", session_id, e)
+                    parsed = _message_from_row(message, Message)
+                    if parsed is None:
+                        _logger.debug("Skipping unparseable message in session %s", session_id)
                         continue
                     # 把落库时间塞进消息 metadata：时间只存在于 DB 行上
                     # （wuwei 的 Message 没有这个字段），而端点原先靠「与
@@ -609,9 +670,29 @@ class DatabaseAgentStorage:
                 try:
                     with self.session_factory() as db:
                         for msg in messages:
+                            # 阶段一双写：结构化列（可查询）+ message_json（灰度回退）。
+                            # 读路径在结构化列缺失时回退到 JSON，兼容迁移未覆盖的行。
+                            def _json_or_none(value):
+                                import json as _json
+                                return _json.dumps(value, ensure_ascii=False) if value else None
+
                             db.add(
                                 AgentMessageModel(
                                     session_id=session_id,
+                                    message_id=msg.id,
+                                    role=getattr(msg, "role", None),
+                                    content_text=getattr(msg, "content", "") or "",
+                                    content_parts_json=_json_or_none(
+                                        getattr(msg, "content_parts", None)
+                                    ),
+                                    tool_calls_json=_json_or_none(
+                                        [tc.model_dump() for tc in (getattr(msg, "tool_calls", None) or [])]
+                                    ),
+                                    tool_call_id=getattr(msg, "tool_call_id", None),
+                                    name=getattr(msg, "name", None),
+                                    reasoning_text=getattr(msg, "reasoning_content", None) or None,
+                                    metadata_json=_json_or_none(getattr(msg, "metadata", None)),
+                                    status=getattr(msg, "status", None),
                                     message_json=msg.model_dump_json(exclude_none=True),
                                 )
                             )

@@ -21,7 +21,6 @@ from typing import Any
 import httpx
 
 from app.core.config import get_settings
-from app.services.intranet_policy import check_url
 
 logger = logging.getLogger("agenticos.intranet")
 
@@ -140,7 +139,14 @@ async def call_service(
 
 
 def guard_url(url: str) -> None:
-    """按策略检查 URL，不通过就抛错。"""
+    """按策略检查 URL，不通过就抛错。
+
+    所有出网 HTTP 调用的统一门禁（图片工具 / 外部系统 / OAuth 刷新 /
+    OpenAPI 导入等）都走这里，策略与内网爬虫客户端完全一致。
+    在调用点做局部 import，便于测试时 monkeypatch ``intranet_policy.check_url``。
+    """
+    from app.services.intranet_policy import check_url
+
     settings = get_settings()
     decision = check_url(
         url,

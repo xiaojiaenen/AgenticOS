@@ -1,8 +1,10 @@
 """Website deploy service — handle deploy requests, admin approval, and nginx deployment."""
 
 import logging
+import os
 import shutil
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -295,30 +297,51 @@ class WebsiteDeployService:
         if is_public:
             target_dir = NGINX_SERVE_ROOT / deploy.project_slug
             # 对外展示短链；nginx 侧 /s/<code> 由后端 302 到真实静态目录
-            deploy.deploy_url = _public_url(deploy.short_code, deploy.project_slug, private=False)
+            new_deploy_url = _public_url(deploy.short_code, deploy.project_slug, private=False)
         else:
             target_dir = NGINX_SERVE_ROOT / "_private" / deploy.project_slug
             # nginx 配置必须显式 deny /sites/_private/（见 nginx.conf 注释）；
             # 访问统一走后端 /website/site/ 端点（带 30 天签名）
-            deploy.deploy_url = _public_url(deploy.short_code, deploy.project_slug, private=True)
+            new_deploy_url = _public_url(deploy.short_code, deploy.project_slug, private=True)
 
-        target_dir.mkdir(parents=True, exist_ok=True)
+        # 原子发布：先拷到目标同盘的临时目录并校验，再 os.replace 原子替换。
+        # 原实现先清空目标目录再逐项拷贝 —— 拷贝中途失败会留下空白站点，
+        # 而 decide() 又把 status 记成 failed、deploy_url 已提交，用户看到
+        # 「线上空白 + 数据库说失败」的半状态。现在失败时旧目录原样保留，
+        # DB 字段也不提前改（decide() 的异常分支不会污染）。
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        staging_dir = Path(tempfile.mkdtemp(
+            prefix=f".{target_dir.name}-staging-", dir=str(target_dir.parent)
+        ))
+        try:
+            for item in dist_path.iterdir():
+                dest = staging_dir / item.name
+                if item.is_dir():
+                    shutil.copytree(item, dest)
+                else:
+                    shutil.copy2(item, dest)
 
-        # Remove old files
-        for item in target_dir.iterdir():
-            if item.is_dir():
-                shutil.rmtree(item)
-            else:
-                item.unlink()
+            # 旧目录先改名让路（同盘 rename 原子）；若替换失败立即回滚。
+            backup_dir = None
+            if target_dir.exists():
+                backup_dir = target_dir.parent / f".{target_dir.name}-backup-{os.getpid()}"
+                if backup_dir.exists():
+                    shutil.rmtree(backup_dir, ignore_errors=True)
+                os.replace(target_dir, backup_dir)
+            try:
+                os.replace(staging_dir, target_dir)
+            except Exception:
+                if backup_dir is not None and backup_dir.exists():
+                    os.replace(backup_dir, target_dir)
+                raise
+            if backup_dir is not None and backup_dir.exists():
+                shutil.rmtree(backup_dir, ignore_errors=True)
+        except Exception:
+            shutil.rmtree(staging_dir, ignore_errors=True)
+            raise
 
-        # Copy new files
-        for item in dist_path.iterdir():
-            dest = target_dir / item.name
-            if item.is_dir():
-                shutil.copytree(item, dest)
-            else:
-                shutil.copy2(item, dest)
-
+        # 文件已原子落位，此刻才改 DB 字段，避免半状态。
+        deploy.deploy_url = new_deploy_url
         deploy.status = "deployed"
         deploy.updated_at = datetime.now(timezone.utc)
 

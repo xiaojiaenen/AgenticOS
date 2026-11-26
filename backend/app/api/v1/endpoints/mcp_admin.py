@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import require_perm, get_db
 from app.db.models import UserModel
 from app.services import audit_service
 from app.services.mcp_service import (
@@ -70,7 +70,7 @@ class ProfileMCPAuthPayload(BaseModel):
 
 
 @router.get("/servers", summary="列出 MCP 服务器")
-def get_mcp_servers(_: UserModel = Depends(require_admin)):
+def get_mcp_servers(_: UserModel = Depends(require_perm("tool:configure"))):
     return {"items": list_servers()}
 
 
@@ -79,7 +79,7 @@ def create_mcp_server(
     payload: MCPServerPayload,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("tool:configure")),
 ):
     try:
         result = upsert_server(payload.model_dump())
@@ -99,7 +99,7 @@ def remove_mcp_server(
     name: str,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("tool:configure")),
 ) -> None:
     try:
         delete_server(name)
@@ -115,7 +115,7 @@ def remove_mcp_server(
 async def connect_mcp(
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("tool:configure")),
 ):
     service = get_mcp_service()
     ok = await service.connect()
@@ -133,7 +133,7 @@ async def connect_mcp(
 
 
 @router.get("/tools", summary="查看已发现的 MCP 工具")
-async def list_mcp_tools(_: UserModel = Depends(require_admin)):
+async def list_mcp_tools(_: UserModel = Depends(require_perm("tool:configure"))):
     service = get_mcp_service()
     return {
         "connected": service._session_manager is not None,
@@ -148,7 +148,7 @@ async def list_mcp_tools(_: UserModel = Depends(require_admin)):
 @router.get("/profiles/{profile_id}/servers", summary="查看智能体授权的 MCP 服务器")
 def get_profile_mcp_servers(
     profile_id: int,
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("tool:configure")),
 ):
     return {"items": list_profile_servers(profile_id)}
 
@@ -159,8 +159,17 @@ def set_profile_mcp_servers(
     payload: ProfileMCPAuthPayload,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("tool:configure")),
 ):
+    from app.services.agent_profile_service import AgentProfileService
+
+    try:
+        AgentProfileService.assert_profile_manageable(profile_id, current_user, db)
+    except (LookupError, PermissionError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND if isinstance(exc, LookupError) else status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     apply_profile_servers(profile_id, [r.model_dump() for r in payload.servers])
     audit_service.record_request(
         db, http_request, action="mcp.profile_auth", actor=current_user,

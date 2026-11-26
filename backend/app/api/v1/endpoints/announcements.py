@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_perm
 from app.db.models import UserModel
 from app.schemas.announcements import (
     ActiveAnnouncementResponse,
@@ -27,7 +27,7 @@ def get_active_announcement(_: UserModel = Depends(get_current_user)) -> dict[st
 
 
 @router.get("", response_model=AnnouncementListResponse)
-def list_announcements(_: UserModel = Depends(require_admin)) -> dict[str, object]:
+def list_announcements(_: UserModel = Depends(require_perm("announcement:create"))) -> dict[str, object]:
     return AnnouncementService().list_admin()
 
 
@@ -36,7 +36,7 @@ def create_announcement(
     payload: AnnouncementCreateRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("announcement:create")),
 ) -> dict[str, object]:
     result = AnnouncementService().create(payload, current_user)
     audit_service.record_request(
@@ -50,7 +50,7 @@ def create_announcement(
 @router.post("/generate", response_model=AnnouncementGeneratedDraft)
 async def generate_announcement(
     payload: AnnouncementGenerateRequest,
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("announcement:create")),
 ) -> dict[str, object]:
     # 纯生成草稿、不落库，不写审计（避免把用户提示词全文留档）
     return await AnnouncementAIService().generate_draft(payload)
@@ -62,7 +62,7 @@ def update_announcement(
     payload: AnnouncementUpdateRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("announcement:edit")),
 ) -> dict[str, object]:
     try:
         result = AnnouncementService().update(announcement_id, payload)
@@ -81,7 +81,7 @@ def delete_announcement(
     announcement_id: int,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("announcement:delete")),
 ) -> None:
     try:
         AnnouncementService().delete(announcement_id)

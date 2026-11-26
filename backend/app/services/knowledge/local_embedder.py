@@ -73,32 +73,52 @@ class LocalEmbedder:
         return self._dims
 
     def _ensure_model(self):
-        """懒加载模型。首次调用会阻塞（下载/加载），之后复用。"""
+        """懒加载模型。首次调用会阻塞（下载/加载），之后复用。
+
+        双后端：优先 fastembed（基于 onnxruntime，轻量、无需 torch），
+        没装时回退 sentence-transformers。返回 (backend, model) 元组。
+        """
         if self._model is not None:
             return self._model
         with self._lock:
             if self._model is not None:
                 return self._model
-            try:
-                from sentence_transformers import SentenceTransformer
-            except ImportError as exc:
-                raise LocalEmbedderUnavailable(
-                    "未安装 sentence-transformers。安装方式：\n"
-                    "  pip install sentence-transformers\n"
-                    "首次使用会自动下载模型（需要外网或本地模型目录）。"
-                ) from exc
 
-            logger.info("loading local embedding model: %s", self._model_name)
+            # 1) fastembed（推荐：onnxruntime 即可，模型多为 ONNX 量化版）
             try:
-                model = SentenceTransformer(self._model_name)
-            except Exception as exc:  # noqa: BLE001
-                raise LocalEmbedderUnavailable(
-                    f"加载本地模型「{self._model_name}」失败：{exc}\n"
-                    "如果是离线环境，请先把模型下载到本地目录，"
-                    "然后把「离线模型路径」填成该目录的绝对路径。"
-                ) from exc
+                from fastembed import TextEmbedding
 
-            dims = int(model.get_sentence_embedding_dimension() or 0)
+                logger.info("loading local embedding model (fastembed): %s", self._model_name)
+                model = TextEmbedding(model_name=self._model_name)
+                dims = self._deduce_dims(model)
+                self._model = ("fastembed", model)
+            except ImportError:
+                model = None
+
+            # 2) sentence-transformers 回退
+            if self._model is None:
+                try:
+                    from sentence_transformers import SentenceTransformer
+                except ImportError as exc:
+                    raise LocalEmbedderUnavailable(
+                        "未安装本地 embedding 依赖。推荐安装轻量版：\n"
+                        "  pip install fastembed\n"
+                        "或完整版：\n"
+                        "  pip install sentence-transformers\n"
+                        "首次使用会自动下载模型（需要外网或本地模型目录）。"
+                    ) from exc
+                logger.info("loading local embedding model (sentence-transformers): %s", self._model_name)
+                try:
+                    model = SentenceTransformer(self._model_name)
+                except Exception as exc:  # noqa: BLE001
+                    raise LocalEmbedderUnavailable(
+                        f"加载本地模型「{self._model_name}」失败：{exc}\n"
+                        "如果是离线环境，请先把模型下载到本地目录，"
+                        "然后把「离线模型路径」填成该目录的绝对路径。"
+                    ) from exc
+                dims = int(model.get_sentence_embedding_dimension() or 0)
+                self._model = ("sentence-transformers", model)
+
             if not dims:
                 raise LocalEmbedderUnavailable(
                     f"无法确定模型「{self._model_name}」的输出维度"
@@ -109,17 +129,25 @@ class LocalEmbedder:
                     f"但配置里写的是 {self._expected_dims} 维。\n"
                     "维度不一致会让向量库里已有数据全部失效，请改配置后再试。"
                 )
-            self._model = model
             self._dims = dims
             logger.info("local embedding model ready: %s (%d dims)", self._model_name, dims)
-            return model
+            return self._model
+
+    def _deduce_dims(self, model) -> int:
+        """从 fastembed 模型推断维度（用一条短文本实测，避免依赖私有属性）。"""
+        try:
+            return len(next(iter(model.embed(["维度探测"]))))
+        except Exception:  # noqa: BLE001
+            return 0
 
     def encode(self, texts: Sequence[str]) -> list[list[float]]:
         """批量向量化。失败抛异常（由上层决定降级）。"""
         if not texts:
             return []
-        model = self._ensure_model()
+        backend, model = self._ensure_model()
         with self._lock:
+            if backend == "fastembed":
+                return [v.tolist() for v in model.embed(list(texts))]
             vectors = model.encode(
                 list(texts),
                 batch_size=32,

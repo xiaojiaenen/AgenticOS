@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_perm
 from app.db.models import UserModel
 from app.schemas.external_systems import (
     OpenApiImportRequest,
@@ -34,7 +34,7 @@ admin_router = APIRouter(prefix="/external-systems", tags=["External Systems"])
 
 @admin_router.get("", response_model=ExternalSystemListResponse)
 def list_systems(
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     return ExternalSystemListResponse(items=ExternalSystemService(db).list_systems())
@@ -44,7 +44,7 @@ def list_systems(
 def create_system(
     body: ExternalSystemCreateRequest,
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     created = ExternalSystemService(db).create_system(body, user_id=admin.id)
@@ -59,7 +59,7 @@ def create_system(
 @admin_router.get("/{system_id}", response_model=ExternalSystemResponse)
 def get_system(
     system_id: int,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     try:
@@ -73,7 +73,7 @@ async def update_system(
     system_id: int,
     body: ExternalSystemUpdateRequest,
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     try:
@@ -93,7 +93,7 @@ async def update_system(
 def delete_system(
     system_id: int,
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     try:
@@ -112,7 +112,7 @@ def delete_system(
 @admin_router.get("/{system_id}/apis", response_model=ExternalApiListResponse)
 def list_apis(
     system_id: int,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     return ExternalApiListResponse(items=ExternalSystemService(db).list_apis(system_id))
@@ -123,7 +123,7 @@ def create_api(
     system_id: int,
     body: ExternalApiCreateRequest,
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     try:
@@ -144,7 +144,7 @@ def create_api(
 def get_api(
     system_id: int,
     api_id: int,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     try:
@@ -159,7 +159,7 @@ def update_api(
     api_id: int,
     body: ExternalApiUpdateRequest,
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     try:
@@ -179,7 +179,7 @@ def delete_api(
     system_id: int,
     api_id: int,
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     try:
@@ -197,7 +197,7 @@ async def test_api(
     system_id: int,
     api_id: int,
     body: ExternalApiTestRequest,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     set_ext_user_id(admin.id)
@@ -215,7 +215,7 @@ async def test_api(
 @admin_router.get("/profiles/{profile_id}/systems")
 def list_profile_systems(
     profile_id: int,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     return ExternalSystemService(db).list_profile_systems(profile_id)
@@ -226,9 +226,18 @@ def apply_profile_systems(
     profile_id: int,
     body: list[ProfileExternalSystemRef],
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
+    from app.services.agent_profile_service import AgentProfileService
+
+    try:
+        AgentProfileService.assert_profile_manageable(profile_id, admin, db)
+    except (LookupError, PermissionError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND if isinstance(exc, LookupError) else status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     refs = [{"system_id": r.system_id, "enabled": r.enabled} for r in body]
     ExternalSystemService(db).apply_profile_systems(profile_id, refs)
     audit_service.record_request(
@@ -337,7 +346,7 @@ def list_my_connections(
 @admin_router.post("/import-openapi/preview")
 async def preview_openapi_import(
     body: OpenApiImportRequest,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
 ):
     try:
         from app.services.external_system_service import ExternalSystemService as ESS
@@ -351,7 +360,7 @@ async def preview_openapi_import(
 def confirm_openapi_import(
     body: dict,
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ):
     try:

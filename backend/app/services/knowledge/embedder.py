@@ -158,6 +158,9 @@ class KnowledgeEmbedder:
         self._timeout = settings.knowledge_embedding_timeout_seconds
         self._cooldown = settings.knowledge_embedding_cooldown_seconds
         self._failed_until = 0.0
+        # HTTP 连接池复用：每次 _call_api 都新建 httpx.Client 会让同一批切片
+        # 编译重复 TCP/TLS 握手。单例 embedder 持有长连接，reset 时关闭。
+        self._http_client: httpx.Client | None = None
 
         # 后端选择：local（本地模型） / remote（HTTP API）。
         #
@@ -252,7 +255,10 @@ class KnowledgeEmbedder:
         self._failed_until = time.monotonic() + max(0.0, self._cooldown)
 
     def _cache_key(self, text: str) -> str:
-        digest = hashlib.sha256(f"{self._model}:{text}".encode()).hexdigest()
+        # 键必须含 base_url/dimensions：换端点或换维度模型后旧向量不能复用，
+        # 否则检索会用错维度的向量做余弦，静默产出垃圾结果。
+        identity = f"{self._model}|{self._base_url}|{self.dimensions}|{text}"
+        digest = hashlib.sha256(identity.encode()).hexdigest()
         return digest
 
     def embed_query(self, text: str) -> list[float] | None:
@@ -310,14 +316,20 @@ class KnowledgeEmbedder:
 
         prepared = [(t or "")[: self.MAX_CHARS] for t in inputs]
         try:
-            with httpx.Client(timeout=self._timeout) as client:
-                resp = client.post(
-                    f"{self._base_url}/embeddings",
-                    headers={"Authorization": f"Bearer {self._api_key}"},
-                    json={"model": self._model, "input": prepared},
-                )
-                resp.raise_for_status()
-                data = resp.json()
+            # 端点可能在 _ensure_provider_endpoint 里被改写，身份变化时重建 client。
+            identity = (self._base_url, self._api_key)
+            if self._http_client is None or getattr(self, "_http_client_identity", None) != identity:
+                if self._http_client is not None:
+                    self._http_client.close()
+                self._http_client = httpx.Client(timeout=self._timeout)
+                self._http_client_identity = identity
+            resp = self._http_client.post(
+                f"{self._base_url}/embeddings",
+                headers={"Authorization": f"Bearer {self._api_key}"},
+                json={"model": self._model, "input": prepared},
+            )
+            resp.raise_for_status()
+            data = resp.json()
         except Exception as exc:  # noqa: BLE001 —— 向量不可用不得让检索整体失败
             self._mark_failure()
             logger.warning(
@@ -421,7 +433,12 @@ def reset_knowledge_embedder() -> None:
     """
     global _embedder_singleton
     with _embedder_lock:
+        old = _embedder_singleton
         _embedder_singleton = None
+    if old is not None and old._http_client is not None:  # noqa: SLF001
+        old._http_client.close()
+    # 配置变了，旧的查询向量缓存全是旧模型/旧端点的结果，必须一起清。
+    clear_query_vector_cache()
     try:
         from app.services.knowledge.local_embedder import reset_local_embedders
 

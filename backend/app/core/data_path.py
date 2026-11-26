@@ -257,6 +257,11 @@ def _parse_dir_name(name: str) -> tuple[int, str, int] | None:
     return None
 
 
+def parse_dir_name(name: str) -> tuple[int, str, int] | None:
+    """``_parse_dir_name`` 的公开别名（供发布归属校验等跨模块调用）。"""
+    return _parse_dir_name(name)
+
+
 def format_dir_name(user_id: int, session_id: str, version: int) -> str:
     return f"u{user_id}_s{session_id}_v{version}"
 

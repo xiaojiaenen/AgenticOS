@@ -215,10 +215,13 @@ def test_gate_release_is_idempotent(monkeypatch) -> None:
 
     gate = asyncio.run(run())
     assert fake.counters["agenticos:llm_gate:slots"] == 0
-    # 再手动释放同一个 token（模拟崩溃路径的二次清理）不应减成负数
-    gate._release_global("already-released-token")
-    assert fake.counters["agenticos:llm_gate:slots"] == 0
-    gate.shutdown()
+
+    async def release_again() -> None:
+        # 再手动释放同一个 token（模拟崩溃路径的二次清理）不应减成负数
+        await gate._release_global("already-released-token")
+        await gate.shutdown()
+
+    asyncio.run(release_again())
     assert fake.counters["agenticos:llm_gate:slots"] == 0
 
 
@@ -251,6 +254,10 @@ def test_gate_shutdown_releases_held_tokens(monkeypatch) -> None:
         gate._held_tokens.add("leaked")
 
     asyncio.run(run())
-    gate.shutdown()
+
+    async def shutdown() -> None:
+        await gate.shutdown()
+
+    asyncio.run(shutdown())
     assert fake.counters["agenticos:llm_gate:slots"] == 0
     assert not gate._held_tokens

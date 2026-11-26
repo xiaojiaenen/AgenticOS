@@ -20,7 +20,12 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password
-from app.db.models import PublishedItemModel, UserModel
+from app.db.models import (
+    AgentSessionModel,
+    PptArtifactModel,
+    PublishedItemModel,
+    UserModel,
+)
 from app.db.session import create_db_session
 from app.main import app
 
@@ -51,11 +56,47 @@ def create_token(email: str, role: str) -> str:
     )
 
 
+def user_id_for_email(email: str) -> int:
+    with create_db_session() as db:
+        return db.query(UserModel).filter(UserModel.email == email).one().id
+
+
+def create_session(session_id: str, user_email: str) -> None:
+    """发布归属校验要求 session 存在且能确认归属。"""
+    uid = user_id_for_email(user_email)
+    with create_db_session() as db:
+        if db.get(AgentSessionModel, session_id) is None:
+            db.add(AgentSessionModel(
+                session_id=session_id, user_id=uid,
+                system_prompt="", max_steps=10,
+            ))
+            db.commit()
+
+
+def create_ppt_artifact(artifact_id: str, session_id: str) -> None:
+    with create_db_session() as db:
+        if db.get(PptArtifactModel, artifact_id) is None:
+            db.add(PptArtifactModel(
+                artifact_id=artifact_id, session_id=session_id, title="t",
+                slide_count=1, deck_json='{"svgs":[]}', preview_html="",
+                metadata_json="{}",
+            ))
+            db.commit()
+
+
 def cleanup(source_ref: str, *emails: str) -> None:
     with create_db_session() as db:
         db.query(PublishedItemModel).filter(
             PublishedItemModel.source_ref == source_ref
         ).delete()
+        # source_ref 也可能是 ppt artifact_id
+        db.query(PptArtifactModel).filter(
+            PptArtifactModel.artifact_id == source_ref
+        ).delete()
+        for email in emails:
+            uid = db.query(UserModel.id).filter(UserModel.email == email).scalar()
+            if uid is not None:
+                db.query(AgentSessionModel).filter(AgentSessionModel.user_id == uid).delete()
         for email in emails:
             db.query(UserModel).filter(UserModel.email == email).delete()
         db.commit()
@@ -64,9 +105,15 @@ def cleanup(source_ref: str, *emails: str) -> None:
 def test_publish_request_then_approve_then_shortlink(client, tmp_path, monkeypatch):
     """完整链路：申请 → 审批 → 生成文件 → 短链可访问 → 取消后下架。"""
     suffix = uuid4().hex
-    source_ref = f"sheet-dir-{suffix}"
     admin_email = f"pub-admin-{suffix}@example.com"
     user_email = f"pub-user-{suffix}@example.com"
+    session_id = f"sess-{suffix}"
+    admin_token = create_token(admin_email, "admin")
+    user_token = create_token(user_email, "user")
+    uid = user_id_for_email(user_email)
+    # source_ref 必须是合法版本目录名 u{uid}_s{session}_v{n}
+    source_ref = f"u{uid}_s{session_id}_v1"
+    create_session(session_id, user_email)
 
     # 造一个 Univer 表格快照
     from app.core import data_path as dp
@@ -94,9 +141,6 @@ def test_publish_request_then_approve_then_shortlink(client, tmp_path, monkeypat
     published_root = tmp_path / "published"
     monkeypatch.setattr(svc_mod, "PUBLISHED_ITEMS_DIR", published_root)
 
-    admin_token = create_token(admin_email, "admin")
-    user_token = create_token(user_email, "user")
-
     try:
         # ── 1. 提交申请 ──
         created = client.post(
@@ -104,7 +148,7 @@ def test_publish_request_then_approve_then_shortlink(client, tmp_path, monkeypat
             headers={"Authorization": f"Bearer {user_token}"},
             json={
                 "kind": "sheet",
-                "session_id": f"sess-{suffix}",
+                "session_id": session_id,
                 "source_ref": source_ref,
                 "title": "季度数据",
                 "description": "一张示例表格",
@@ -201,15 +245,18 @@ def test_non_admin_cannot_decide(client):
     source_ref = f"noperm-{suffix}"
     admin_email = f"pub-adm-{suffix}@example.com"
     user_email = f"pub-usr-{suffix}@example.com"
+    session_id = f"sess-{suffix}"
     admin_token = create_token(admin_email, "admin")
     user_token = create_token(user_email, "user")
+    create_session(session_id, user_email)
+    create_ppt_artifact(source_ref, session_id)
     try:
         created = client.post(
             "/api/v1/published-items",
             headers={"Authorization": f"Bearer {user_token}"},
             json={
                 "kind": "ppt",
-                "session_id": f"sess-{suffix}",
+                "session_id": session_id,
                 "source_ref": source_ref,
                 "title": "标题",
             },
@@ -249,10 +296,13 @@ def test_superadmin_and_operator_can_review(client):
     suffix = uuid4().hex[:8]
     emails = [f"sa-{suffix}@t.local", f"op-{suffix}@t.local", f"u-{suffix}@t.local"]
     tokens = {}
-    source_ref = f"ppt://cap-test-{suffix}"
+    source_ref = f"ppt-cap-{suffix}"
+    session_id = f"sess-{suffix}"
     try:
         for role, email in zip(("superadmin", "operator", "user"), emails):
             tokens[role] = create_token(email, role)
+        create_session(session_id, emails[2])
+        create_ppt_artifact(source_ref, session_id)
 
         user_token = tokens["user"]
         created = client.post(
@@ -260,7 +310,7 @@ def test_superadmin_and_operator_can_review(client):
             headers={"Authorization": f"Bearer {user_token}"},
             json={
                 "kind": "ppt",
-                "session_id": f"sess-{suffix}",
+                "session_id": session_id,
                 "source_ref": source_ref,
                 "title": "能力门禁回归",
             },
@@ -314,3 +364,104 @@ def test_enforce_for_user_covers_admin_like_roles():
     for role in ("user", "operator", "auditor"):
         user = SimpleNamespace(id=2, role=role)
         assert svc.enforce_for_user(user, "read", "kb:1", domains=["global"]) is False, role
+
+
+def test_gallery_route_is_not_shadowed_by_item_id():
+    """静态 /gallery 必须先于 /{item_id} 注册，否则会被当成 int 解析返回 422。"""
+    from starlette.routing import Match
+
+    gallery_path = "/api/v1/published-items/gallery"
+    matched = [
+        route
+        for route in app.routes
+        if getattr(route, "path", None) == gallery_path
+        and route.matches(
+            __import__("starlette").requests.Request(
+                scope={"type": "http", "method": "GET", "path": gallery_path, "headers": []}
+            )
+        )[0] == Match.FULL
+    ]
+    assert matched, "作品库 /gallery 路由未注册或不可匹配"
+
+
+def test_cannot_request_publish_with_others_artifact(client):
+    """IDOR：普通用户不能用他人的 artifact_id 申请发布。
+
+    申请时按产物实际归属校验 session/source_ref，跨用户即 400。
+    """
+    suffix = uuid4().hex
+    victim_email = f"victim-{suffix}@example.com"
+    attacker_email = f"attacker-{suffix}@example.com"
+    victim_session = f"victim-sess-{suffix}"
+    attacker_session = f"attacker-sess-{suffix}"
+    victim_artifact = f"victim-art-{suffix}"
+
+    victim_token = create_token(victim_email, "user")
+    attacker_token = create_token(attacker_email, "user")
+    create_session(victim_session, victim_email)
+    create_session(attacker_session, attacker_email)
+    create_ppt_artifact(victim_artifact, victim_session)
+
+    try:
+        attacker_resp = client.post(
+            "/api/v1/published-items",
+            headers={"Authorization": f"Bearer {attacker_token}"},
+            json={
+                "kind": "ppt",
+                "session_id": attacker_session,
+                "source_ref": victim_artifact,
+                "title": "窃取他人产物",
+            },
+        )
+        assert attacker_resp.status_code == 400, attacker_resp.text
+        # session 是攻击者自己的，但 artifact 属于受害者 → 被拒
+        assert "无权" in attacker_resp.json()["detail"] or "不匹配" in attacker_resp.json()["detail"]
+
+        # 受害者本人可以正常申请
+        owner_resp = client.post(
+            "/api/v1/published-items",
+            headers={"Authorization": f"Bearer {victim_token}"},
+            json={
+                "kind": "ppt",
+                "session_id": victim_session,
+                "source_ref": victim_artifact,
+                "title": "本人产物",
+            },
+        )
+        assert owner_resp.status_code == 200, owner_resp.text
+        assert owner_resp.json()["user_id"] == user_id_for_email(victim_email)
+    finally:
+        cleanup(victim_artifact, victim_email, attacker_email)
+
+
+def test_source_ref_path_traversal_rejected(client, tmp_path, monkeypatch):
+    """路径穿越：source_ref="../../etc" 不得读到 base 外的文件。"""
+    from app.core import data_path as dp
+    import app.services.published_item_service as svc_mod
+
+    suffix = uuid4().hex
+    user_email = f"trav-{suffix}@example.com"
+    session_id = f"trav-sess-{suffix}"
+    user_token = create_token(user_email, "user")
+    create_session(session_id, user_email)
+
+    # 合法版本目录名，但 _read_office_snapshot 内部用 .. 逃逸读取别的目录
+    uid = user_id_for_email(user_email)
+    source_ref = f"u{uid}_s{session_id}_v1"
+    evil_ref = "../../etc"
+
+    # 直接调用服务层验证路径白名单（resolve().relative_to(base)）
+    svc = svc_mod.PublishedItemService()
+    monkeypatch.setattr(dp, "SHEETS_DIR", tmp_path / "sheets")
+    assert svc._read_office_snapshot(evil_ref, kind="sheet") is None
+
+    # 用绝对路径也不行
+    assert svc._read_office_snapshot(str(tmp_path / "etc"), kind="sheet") is None
+
+    with create_db_session() as db:
+        db.query(PublishedItemModel).filter(
+            PublishedItemModel.source_ref == source_ref
+        ).delete()
+        db.query(AgentSessionModel).filter(AgentSessionModel.user_id == uid).delete()
+        db.query(UserModel).filter(UserModel.email == user_email).delete()
+        db.commit()

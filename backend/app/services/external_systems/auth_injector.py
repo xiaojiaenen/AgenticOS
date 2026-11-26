@@ -108,6 +108,11 @@ class AuthInjector:
         if not token_url:
             raise ValueError("OAuth2 token_url is not configured on this system")
 
+        # SSRF：令牌端点同样经统一出网策略校验
+        from app.services.intranet_client import guard_url
+
+        guard_url(token_url)
+
         client_id = decrypt_safe(system.oauth_client_id_encrypted or "")
         client_secret = decrypt_safe(system.oauth_client_secret_encrypted or "")
 
@@ -170,8 +175,12 @@ class AuthInjector:
                         pass
 
                 base = system.base_url.rstrip("/")
-                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                    resp = await client.post(base + system.jwt_refresh_url, json=refresh_body)
+                refresh_endpoint = base + system.jwt_refresh_url
+                from app.services.intranet_client import guard_url
+
+                guard_url(refresh_endpoint)
+                async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
+                    resp = await client.post(refresh_endpoint, json=refresh_body)
                     resp.raise_for_status()
 
                 # Determine token source
@@ -242,8 +251,12 @@ class AuthInjector:
             body = {"username": config.get("username", ""), "password": config.get("password", "")}
 
         base = system.base_url.rstrip("/")
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            resp = await client.post(base + login_url, json=body)
+        login_endpoint = base + login_url
+        from app.services.intranet_client import guard_url
+
+        guard_url(login_endpoint)
+        async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
+            resp = await client.post(login_endpoint, json=body)
             resp.raise_for_status()
 
         # Determine token source: explicit login_token_source > auto-detect

@@ -67,6 +67,7 @@ class AgentProfileExternalSystemRef(BaseModel):
 class AgentProfileCreateRequest(AgentProfileBase):
     tools: list[AgentProfileTool] = Field(default_factory=list)
     skill_ids: list[int] = Field(default_factory=list)
+    knowledge_base_ids: list[int] = Field(default_factory=list, description="绑定的知识库白名单，空=不限制")
     external_systems: list[AgentProfileExternalSystemRef] = Field(default_factory=list)
     # private=仅自己可用（用户自建默认）；public=可出现在商店供他人安装（管理员发布用）
     visibility: str = Field(default="private", pattern="^(private|public)$")
@@ -86,6 +87,7 @@ class AgentProfileUpdateRequest(BaseModel):
     audience_user_ids: list[int] | None = None
     tools: list[AgentProfileTool] | None = None
     skill_ids: list[int] | None = None
+    knowledge_base_ids: list[int] | None = None
     external_systems: list[AgentProfileExternalSystemRef] | None = None
     visibility: str | None = Field(default=None, pattern="^(private|public)$")
 
@@ -119,6 +121,8 @@ class AgentProfileResponse(AppBaseModel):
     enabled: bool
     listed: bool
     is_builtin: bool
+    #: 内置智能体是否被人工改过（服务层已返回，响应模型曾漏声明导致前端拿不到）
+    customized: bool = False
     installed: bool = False
     owner_id: int | None = None
     """是否由当前请求用户拥有（前端据此显示编辑/删除入口）"""
@@ -137,6 +141,7 @@ class AgentProfileResponse(AppBaseModel):
     visibility: str = "private"
     max_steps: int | None = None
     audience_mode: str
+    knowledge_base_ids: list[int] = Field(default_factory=list)
     audience_users: list[AgentProfileAudienceUser] = Field(default_factory=list)
     tools: list[AgentProfileTool]
     skills: list[AgentProfileSkillReference] = Field(default_factory=list)

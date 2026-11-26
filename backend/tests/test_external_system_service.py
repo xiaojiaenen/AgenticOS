@@ -854,6 +854,12 @@ class TestNoAuthSystemToolHandler:
         monkeypatch.setattr("app.db.session.create_db_session", lambda: _FakeSession())
         monkeypatch.setattr(tb, "_cache_get", _fake_cache_get)
         monkeypatch.setattr(tb.httpx, "AsyncClient", _FakeClient)
+        # 本用例只验证静态参数注入，放行出网策略（SSRF 由 test_ssrf_egress 单独覆盖）
+        from types import SimpleNamespace as _NS
+        monkeypatch.setattr(
+            "app.services.intranet_policy.check_url",
+            lambda url, **kw: _NS(allowed=True, reason="", resolved_ip="1.2.3.4"),
+        )
 
         handler = tb._build_system_tool_handler(system, api_map, user_id=1)
         result = await handler("list_items", {})

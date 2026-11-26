@@ -48,7 +48,29 @@ def register_data_analysis_tools(registry: ToolRegistry) -> None:
             return json.dumps({"error": f"创建 DataFrame 失败: {e}"}, ensure_ascii=False)
 
         result = _run_analysis(df, analysis_type, column)
-        return json.dumps(result, ensure_ascii=False, default=str)
+        # pandas 的 NaN / ±Inf 不是合法 JSON（Python json 会写出裸 NaN，
+        # 严格解析器如 JS JSON.parse 直接抛错）。返回前递归归一成 null，
+        # 保证工具输出永远是可被 LLM / 前端解析的 JSON。
+        return json.dumps(_json_safe(result), ensure_ascii=False, default=str, allow_nan=False)
+
+
+def _json_safe(value: Any) -> Any:
+    """递归把 NaN / ±Inf / numpy 标量归一成 JSON 安全值。"""
+    import math
+
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    # numpy 标量（np.int64 / np.float64 / np.bool_ 等）转成 Python 原生类型
+    if hasattr(value, "item") and callable(getattr(value, "item", None)):
+        try:
+            return _json_safe(value.item())
+        except (ValueError, TypeError):
+            pass
+    return value
 
 
 def _run_analysis(df, analysis_type: str, column: str) -> dict[str, Any]:
@@ -87,7 +109,7 @@ def _summary(df) -> dict:
         "列数": len(df.columns),
         "列名": df.columns.tolist(),
         "数值列": numeric_cols,
-        "文本列": df.select_dtypes(include=["object"]).columns.tolist(),
+        "文本列": df.select_dtypes(include=["object", "string"]).columns.tolist(),
     }
     # 前 5 行预览
     info["前5行"] = df.head(5).to_dict(orient="records")

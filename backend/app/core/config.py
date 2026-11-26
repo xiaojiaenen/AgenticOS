@@ -205,6 +205,24 @@ class Settings(BaseSettings):
 
     # 异步子代理配置
     async_sub_agents_enabled: bool = Field(default=True, validation_alias="ASYNC_SUB_AGENTS_ENABLED")
+    # LangGraph checkpointer（DeepAgents 官方持久化方式）：默认开启。
+    # 本地用 SqliteSaver 落 data/checkpoints.sqlite；生产切 PG 后可用 PostgresSaver。
+    # 阶段 2A：只启用 checkpoint 状态持久化，仍每轮传全量历史（零行为风险）。
+    langgraph_checkpointer_enabled: bool = Field(
+        default=True, validation_alias="LANGGRAPH_CHECKPOINTER_ENABLED"
+    )
+    langgraph_checkpoint_db: str = Field(
+        default="", validation_alias="LANGGRAPH_CHECKPOINT_DB"
+    )
+    # DeepAgents RubricMiddleware（在线自评估达标循环）：默认关闭。
+    # 开启后 agent 结束前会调用独立 grader 按 rubric 打分，不达标则续跑
+    # （额外 LLM 成本 + 延迟，且会产生 rubric_evaluation_end 事件）。
+    deepagents_rubric_enabled: bool = Field(
+        default=False, validation_alias="DEEPAGENTS_RUBRIC_ENABLED"
+    )
+    deepagents_rubric_max_iterations: int = Field(
+        default=2, validation_alias="DEEPAGENTS_RUBRIC_MAX_ITERATIONS"
+    )
 
     # Redis 配置（留空则使用内存 fallback）
     redis_url: str = Field(default="", validation_alias="REDIS_URL")
@@ -233,8 +251,9 @@ class Settings(BaseSettings):
     # 系统通知邮箱配置（用于任务完成通知等系统邮件）
     notify_email_address: str = Field(default="", validation_alias="NOTIFY_EMAIL_ADDRESS")
     notify_email_password: str = Field(default="", validation_alias="NOTIFY_EMAIL_PASSWORD")
-    # 通知邮件 SMTP 主机（内网邮箱服务）。内部私有部署，默认指向内网地址。
-    notify_smtp_host: str = Field(default="10.12.128.18", validation_alias="NOTIFY_SMTP_HOST")
+    # 通知邮件 SMTP 主机。必须显式配置（内网部署在 .env / compose 里指定），
+    # 不再硬编码内网 IP——其他环境未配置时会静默超时，排障困难。
+    notify_smtp_host: str = Field(default="", validation_alias="NOTIFY_SMTP_HOST")
     notify_smtp_port: int = Field(default=465, validation_alias="NOTIFY_SMTP_PORT")
     notify_smtp_ssl: bool = Field(default=True, validation_alias="NOTIFY_SMTP_SSL")
     notify_task_min_seconds: int = Field(default=120, validation_alias="NOTIFY_TASK_MIN_SECONDS")
@@ -463,26 +482,44 @@ _REQUIRED_PRODUCTION_SECRETS: tuple[tuple[str, str, str], ...] = (
 )
 
 
+# 示例 .env 里的占位串 / 短密钥在生产环境一律拒绝：
+# 抄示例就上生产会让 JWT 签名密钥全网皆知。
+_PLACEHOLDER_SECRETS: frozenset[str] = frozenset({
+    "change-this-to-a-long-random-secret",
+    "change-me-generate-your-own-with-python-c-import-secrets-print-secrets-token_urlsafe-48",
+    "change-me",
+    "changeme",
+    "secret",
+    "your-secret-key",
+    "sk-your-api-key-here",
+})
+
+
 def _assert_production_secrets(settings: Settings) -> None:
-    """生产环境启动即失败：关键密钥留空不允许静默派生。
+    """生产环境启动即失败：关键密钥留空或为占位串都不允许。
 
     派生行为只在非生产保留（开发机免配置、测试不依赖 .env）。
     容器化部署建议改用 docker secrets / K8s Secret 注入同名环境变量。
 
     Raises:
-        RuntimeError: ENVIRONMENT 为 production/prod 且有密钥缺失。
+        RuntimeError: ENVIRONMENT 为 production/prod 且有密钥缺失或为占位串。
     """
     if settings.environment.strip().lower() not in {"production", "prod"}:
         return
 
-    missing = [
-        f"{env_name}（{why}）"
-        for attr, env_name, why in _REQUIRED_PRODUCTION_SECRETS
-        if not (getattr(settings, attr, "") or "").strip()
-    ]
+    missing = []
+    for attr, env_name, why in _REQUIRED_PRODUCTION_SECRETS:
+        value = (getattr(settings, attr, "") or "").strip()
+        if not value:
+            missing.append(f"{env_name}（{why}）")
+        elif value.lower() in _PLACEHOLDER_SECRETS or len(value) < 32:
+            missing.append(
+                f"{env_name}（不能是示例占位串或短于 32 字符；"
+                "用 python -c \"import secrets; print(secrets.token_urlsafe(48))\" 生成）"
+            )
     if missing:
         raise RuntimeError(
-            "ENVIRONMENT=production 但以下密钥未显式配置，拒绝启动：\n  - "
+            "ENVIRONMENT=production 但以下密钥未正确配置，拒绝启动：\n  - "
             + "\n  - ".join(missing)
             + "\n请在 backend/.env（参见 backend/.env.example 的 SECURITY 段）或容器环境变量中显式设置；"
             "生产部署建议改用 docker secrets / K8s Secret 注入。"

@@ -162,6 +162,8 @@ class RuntimeAgentProfile:
     # 这个集合把两类统一到同一个白名单：注册表构建后按它裁剪，
     # 管理员的开关才真正说了算。
     allowed_tools: frozenset[str] = frozenset()
+    #: 绑定的知识库白名单（空 = 不限制）
+    knowledge_base_ids: tuple[int, ...] = ()
 
 
 class AgentProfileService:
@@ -685,6 +687,9 @@ class AgentProfileService:
             "tools_unrestricted": self._is_privileged_profile(db, profile),
             "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode(db, profile),
+            "knowledge_base_ids": [
+                int(x) for x in _json.loads(getattr(profile, "knowledge_base_ids_json", None) or "[]")
+            ],
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": self._merge_tools_with_catalog(tools, hidden_names=hidden_tools),
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
@@ -832,6 +837,9 @@ class AgentProfileService:
             "tools_unrestricted": profile.owner_id is None or (profile.owner_id in privileged_owner_ids),
             "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode(db, profile),
+            "knowledge_base_ids": [
+                int(x) for x in _json.loads(getattr(profile, "knowledge_base_ids_json", None) or "[]")
+            ],
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": self._merge_tools_with_catalog(tools, hidden_names=hidden_tools),
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
@@ -975,6 +983,20 @@ class AgentProfileService:
         if not self._can_manage(profile, user):
             raise PermissionError("内置智能体仅管理员可修改" if profile.is_builtin else "只能管理自己创建的智能体")
 
+    @staticmethod
+    def assert_profile_manageable(profile_id: int, user: UserModel, db) -> AgentProfileModel:
+        """供 MCP / 外部系统绑定等端点复用的资源归属校验。
+
+        这些端点此前只做了全局权限点门禁，任何有 agent:edit 的用户都能改
+        任意 profile（含内置与他人自建）的绑定配置。这里统一走与 PATCH
+        /agent-profiles/{id} 相同的 _assert_can_manage 规则。
+        """
+        profile = db.get(AgentProfileModel, profile_id)
+        if profile is None:
+            raise LookupError("智能体不存在")
+        AgentProfileService()._assert_can_manage(profile, user)
+        return profile
+
     def _assert_can_delete(self, profile: AgentProfileModel, user: UserModel) -> None:
         if profile.is_builtin:
             raise PermissionError("内置智能体不可删除，如需停用请关闭「启用」开关")
@@ -1004,7 +1026,9 @@ class AgentProfileService:
                     select(AgentProfileModel)
                     .where(
                         AgentProfileModel.enabled.is_(True),
-                        # 商店可见条件：管理员上架 listed ∪ 自己创建的 ∪ 用户公开发布的
+                        # 商店可见条件：管理员上架 listed ∪ 自己创建的 ∪
+                        # 创建者主动公开发布的（visibility=public 是用户权利，
+                        # 与「上架商店 listed」是两个不同语义）。
                         (
                             AgentProfileModel.listed.is_(True)
                             | (AgentProfileModel.owner_id == user.id)
@@ -1187,6 +1211,13 @@ class AgentProfileService:
                     raise PermissionError(
                         f"Skill「{'、'.join(blocked)}」已被管理员限制，请联系管理员"
                     )
+            # 已停用的 Skill 运行时会被 only_enabled=True 过滤掉 —— 绑定了
+            # 也不会生效，用户只会觉得"保存后技能丢了"。这里直接拒绝并说明。
+            disabled = [row.slug for row in rows if not getattr(row, "enabled", True)]
+            if disabled:
+                raise ValueError(
+                    f"Skill「{'、'.join(disabled)}」已停用，无法绑定；请先启用该 Skill"
+                )
 
         db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile.id))
         for skill_id in unique_skill_ids:
@@ -1243,46 +1274,113 @@ class AgentProfileService:
 
         return is_admin_like(user.role)
 
+    @staticmethod
+    def _validate_kb_ids(db: Session, ids: list[int] | None, user: UserModel | None) -> list[int]:
+        """校验知识库白名单：存在 + active + 对当前用户可见。
+
+        create / update 共用同一个口径，避免「create 零校验、update 只查 id
+        不查 is_active/owner/visibility」造成的越权绑定与失效库绑定。
+
+        - 不存在 / 已停用（is_active=False）→ KeyError；
+        - visibility=public 且 scope=org：所有人均可绑定；
+        - visibility=private/restricted 或 scope=personal：仅 owner / KB admin /
+          显式 ACL 授权用户可绑定。
+        """
+        if not ids:
+            return []
+        # 去重、保序
+        unique_ids = list(dict.fromkeys(int(i) for i in ids))
+        from app.db.models import KnowledgeBaseModel
+        from app.services.knowledge.acl import is_kb_admin, load_grants, grants_role_for_user, role_allows
+
+        rows = db.scalars(
+            select(KnowledgeBaseModel).where(KnowledgeBaseModel.id.in_(unique_ids))
+        ).all()
+        by_id = {r.id: r for r in rows}
+        kb_admin = bool(user and is_kb_admin(user.role))
+        grants = load_grants(db, unique_ids)
+        valid: list[int] = []
+        invalid: list[int] = []
+        for kb_id in unique_ids:
+            kb = by_id.get(kb_id)
+            if kb is None or not kb.is_active:
+                invalid.append(kb_id)
+                continue
+            if kb_admin:
+                valid.append(kb_id)
+                continue
+            owner = bool(user and kb.owner_id == user.id)
+            role = "admin" if owner else grants_role_for_user(
+                grants.get(kb_id, []), user.id if user else None
+            )
+            visible = (
+                role_allows(role, "read")
+                or (kb.visibility == "public" and kb.scope != "personal")
+            )
+            if visible:
+                valid.append(kb_id)
+            else:
+                invalid.append(kb_id)
+        if invalid:
+            raise KeyError(f"Unknown or inaccessible knowledge base ids: {sorted(invalid)}")
+        return valid
+
     def create(self, request: AgentProfileCreateRequest, creator: UserModel) -> dict[str, object]:
-        with self.session_factory() as db:
-            self.ensure_defaults(db)
-            profile = AgentProfileModel(
-                name=request.name,
-                slug=self._unique_slug(db, request.slug or request.name),
-                description=request.description,
-                system_prompt=self._resolve_system_prompt(request.system_prompt, request.response_mode),
-                response_mode=request.response_mode,
-                avatar=request.avatar,
-                enabled=request.enabled,
-                # 建号时同样只有管理员能直接上架（与 update 同一口径）
-                listed=bool(request.listed and self._creator_can_list(creator)),
-                max_steps=request.max_steps,
-                is_builtin=False,
-                created_by=creator.id,
-                owner_id=creator.id,
-                visibility=request.visibility,
-            )
-            db.add(profile)
-            db.flush()
-            self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(request.response_mode))
-            db.flush()
-            if request.tools:
-                self._apply_tools(db, profile, request.tools, actor_role=creator.role)
-            if request.skill_ids:
-                self._apply_skill_ids(
-                db, profile, request.skill_ids, actor_role=creator.role
-            )
-            if request.external_systems:
-                self._apply_external_systems(db, profile, request.external_systems)
-            self._apply_audience(
-                db,
-                profile,
-                audience_mode=request.audience_mode or AUDIENCE_MODE_ALL,
-                audience_user_ids=request.audience_user_ids,
-            )
-            db.commit()
-            db.refresh(profile)
-            return self._serialize(db, profile, user_id=creator.id)
+        from sqlalchemy.exc import IntegrityError
+
+        # TOCTOU 防护：先查后写有并发窗口，唯一约束兜底；冲突时换 slug 重试，
+        # 不把 500 抛给用户。保留服务层的 PermissionError（受限工具/skill）
+        # 原样上抛，不被重试循环吞掉。
+        for attempt in range(3):
+            with self.session_factory() as db:
+                self.ensure_defaults(db)
+                base_slug = self._unique_slug(db, request.slug or request.name)
+                if attempt > 0:
+                    base_slug = f"{base_slug}-{attempt + 1}"
+                profile = AgentProfileModel(
+                    name=request.name,
+                    slug=base_slug,
+                    description=request.description,
+                    system_prompt=self._resolve_system_prompt(request.system_prompt, request.response_mode),
+                    response_mode=request.response_mode,
+                    avatar=request.avatar,
+                    enabled=request.enabled,
+                    listed=bool(request.listed and self._creator_can_list(creator)),
+                    max_steps=request.max_steps,
+                    is_builtin=False,
+                    created_by=creator.id,
+                    owner_id=creator.id,
+                    visibility=request.visibility,
+                    knowledge_base_ids_json=_json.dumps(
+                        self._validate_kb_ids(db, request.knowledge_base_ids, creator)
+                    ),
+                )
+                db.add(profile)
+                db.flush()
+                self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(request.response_mode))
+                db.flush()
+                if request.tools:
+                    self._apply_tools(db, profile, request.tools, actor_role=creator.role)
+                if request.skill_ids:
+                    self._apply_skill_ids(db, profile, request.skill_ids, actor_role=creator.role)
+                if request.external_systems:
+                    self._apply_external_systems(db, profile, request.external_systems)
+                self._apply_audience(
+                    db,
+                    profile,
+                    audience_mode=request.audience_mode or AUDIENCE_MODE_ALL,
+                    audience_user_ids=request.audience_user_ids,
+                )
+                try:
+                    db.commit()
+                except IntegrityError:
+                    db.rollback()
+                    if attempt < 2:
+                        continue
+                    raise ValueError("创建失败：名称冲突，请换一个名称重试") from None
+                db.refresh(profile)
+                return self._serialize(db, profile, user_id=creator.id)
+        raise ValueError("创建失败，请重试")
 
     def update(
         self,
@@ -1326,9 +1424,12 @@ class AgentProfileService:
                 # 商店（前端已隐藏该开关，这里拦住直接调 API 的路径）。
                 # 管理员不受限 —— 审核并上架本来就是他的职责。
                 if request.listed and user is not None:
+                    # 权限矩阵统一：上架需 agent:publish 权限点（管理员默认有）。
+                    # 保留 is_admin_like 兜底，兼容尚未同步矩阵的环境。
                     from app.core.roles import is_admin_like
+                    from app.services.permission_checker import has_permission
 
-                    if not is_admin_like(user.role):
+                    if not is_admin_like(user.role) and not has_permission(db, user, "agent:publish"):
                         raise PermissionError(
                             "上架到智能体商店需要管理员操作，请联系管理员"
                         )
@@ -1337,6 +1438,11 @@ class AgentProfileService:
                 profile.max_steps = request.max_steps
             if request.visibility is not None:
                 profile.visibility = request.visibility
+            if request.knowledge_base_ids is not None:
+                # 统一口径：存在 + active + owner/admin/ACL 可见（与 create 一致）
+                profile.knowledge_base_ids_json = _json.dumps(
+                    self._validate_kb_ids(db, request.knowledge_base_ids, user)
+                )
             if request.tools is not None:
                 self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
                 db.flush()
@@ -1399,6 +1505,22 @@ class AgentProfileService:
             profile.listed = bool(defaults["listed"])
             profile.enabled = True
             profile.max_steps = defaults.get("max_steps")
+            # 还原默认必须覆盖所有可改字段，否则"还原"后仍残留上次改过的
+            # 可见性/启用范围/外部系统绑定（用户以为复位了，实际没有）。
+            profile.visibility = "private"
+            # 还原默认必须清空 KB 白名单（内置出厂定义不绑定任何知识库，
+            # 否则"还原"后仍残留上次绑定的库）。
+            profile.knowledge_base_ids_json = _json.dumps([])
+            db.execute(
+                delete(AgentProfileAudienceModel).where(
+                    AgentProfileAudienceModel.profile_id == profile.id
+                )
+            )
+            db.execute(
+                delete(AgentProfileExternalSystemModel).where(
+                    AgentProfileExternalSystemModel.profile_id == profile.id
+                )
+            )
             # 清掉标记 → 重新跟随内置定义
             profile.customized_at = None
             db.add(profile)
@@ -1532,11 +1654,18 @@ class AgentProfileService:
             "response_mode": profile.response_mode,
             "avatar": profile.avatar,
             "max_steps": profile.max_steps,
+            "visibility": profile.visibility,
+            "knowledge_base_ids": _json.loads(
+                getattr(profile, "knowledge_base_ids_json", None) or "[]"
+            ),
             "tools": [
                 {"tool_name": t.tool_name, "enabled": t.enabled, "requires_approval": t.requires_approval}
                 for t in tools
             ],
             "skills": [s.slug for s in skills],
+            "approval_sub_tools": {
+                t.tool_name: t.approval_sub_tools_json for t in tools if t.approval_sub_tools_json
+            },
         }
 
     def save_profile_version(self, profile_id: int, *, created_by: int | None, note: str | None = None) -> int | None:
@@ -1620,6 +1749,11 @@ class AgentProfileService:
             profile.response_mode = config.get("response_mode") or profile.response_mode
             profile.avatar = config.get("avatar")
             profile.max_steps = config.get("max_steps")
+            # 版本快照含 visibility / KB 白名单，回滚必须一并恢复，否则
+            # "回滚后工具和技能对了，但知识库绑定丢了"。
+            if "visibility" in config:
+                profile.visibility = config["visibility"]
+            profile.knowledge_base_ids_json = _json.dumps(config.get("knowledge_base_ids") or [])
             db.execute(
                 delete(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile_id)
             )
@@ -1630,8 +1764,18 @@ class AgentProfileService:
                         tool_name=tool["tool_name"],
                         enabled=bool(tool.get("enabled", False)),
                         requires_approval=bool(tool.get("requires_approval", False)),
+                        approval_sub_tools_json=(config.get("approval_sub_tools") or {}).get(tool["tool_name"]),
                     )
                 )
+            # 版本快照存了 skills（slug 列表），回滚必须一并恢复，否则
+            # "回滚后工具对了但技能没了"，用户以为版本回滚坏了。
+            db.execute(
+                delete(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile_id)
+            )
+            for slug in config.get("skills", []):
+                skill = db.scalar(select(SkillModel).where(SkillModel.slug == slug))
+                if skill is not None:
+                    db.add(AgentProfileSkillModel(profile_id=profile_id, skill_id=skill.id, enabled=True))
             db.commit()
         return True
 
@@ -1773,6 +1917,9 @@ class AgentProfileService:
             is_admin_actor=is_admin_actor,
             plan_mode=plan_mode,
             allowed_tools=allowed_tools,
+            knowledge_base_ids=tuple(
+                int(x) for x in _json.loads(getattr(profile, "knowledge_base_ids_json", None) or "[]")
+            ),
         )
 
     @staticmethod

@@ -410,8 +410,13 @@ class ExternalSystemService:
         headers = _serialize_headers(system.headers_json)
         start = time.monotonic()
 
+        # SSRF：所有出网请求先过统一策略；不跟随重定向（逐跳校验由策略负责）。
+        from app.services.intranet_client import guard_url
+
+        guard_url(url)
+
         try:
-            async with httpx.AsyncClient(timeout=api.timeout_seconds, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=api.timeout_seconds, follow_redirects=False) as client:
                 request = client.build_request(
                     method=api.method, url=url,
                     params=query_params or None, json=body, headers=headers,
@@ -576,7 +581,10 @@ class ExternalSystemService:
     async def parse_openapi(openapi_json=None, openapi_url=None):
         import re as _re
         if openapi_url:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            from app.services.intranet_client import guard_url
+
+            guard_url(openapi_url)
+            async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
                 resp = await client.get(openapi_url)
                 resp.raise_for_status()
                 spec = resp.json()

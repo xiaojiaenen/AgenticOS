@@ -6,7 +6,7 @@
 2. 旧 bigram vs jieba tokenizer 的召回对比：仅打印报告，不作失败断言；
 3. BM25 通道：LlamaIndex BM25Retriever（bm25s 引擎）—— 方言无关，
    检索器实例缓存（TTL / LRU / 超限不缓存）与失效钩子；
-4. 融合候选：QueryFusionRetriever（RECIPROcal_RANK）。
+4. 融合候选：RRF(k=60) 直接复用两路排名，单次 search 不重复检索。
 
 测试跑在 conftest 重定向的一次性 SQLite 库上。
 """
@@ -439,8 +439,45 @@ def test_retriever_cache_skips_oversized_corpus(kb_fixture, monkeypatch):
         retrieval_mod.invalidate_knowledge_cache()
 
 
+def test_search_reuses_retrieval_results_no_duplicate_work(kb_fixture, monkeypatch):
+    """单次 search 只跑 BM25/向量各一次（不再重复检索 4 次）。
+
+    之前 search() 先跑两路算分，_fuse_candidates() 又各跑一遍 —— 冷启动
+    重复建 BM25 索引，实测首查 854ms、后续 11ms。现在融合直接复用排名。
+    """
+    from app.db.session import SessionLocal
+    from app.services.knowledge import retrieval as retrieval_mod
+
+    kb_id = kb_fixture
+    retrieval_mod.invalidate_knowledge_cache()
+
+    retrieval = KnowledgeRetrieval(SessionLocal())
+    calls = {"bm25": 0, "vector": 0}
+    real_bm25 = retrieval._bm25_search
+    real_vector = retrieval._vector_search
+
+    def counting_bm25(*args, **kwargs):
+        calls["bm25"] += 1
+        return real_bm25(*args, **kwargs)
+
+    def counting_vector(*args, **kwargs):
+        calls["vector"] += 1
+        return real_vector(*args, **kwargs)
+
+    monkeypatch.setattr(retrieval, "_bm25_search", counting_bm25)
+    monkeypatch.setattr(retrieval, "_vector_search", counting_vector)
+    try:
+        results = retrieval.search("缓存雪崩怎么办", knowledge_base_ids=[kb_id], max_results=5)
+        assert results
+        assert calls == {"bm25": 1, "vector": 1}, (
+            f"单次 search 各检索一次，实际 {calls}"
+        )
+    finally:
+        retrieval.db.close()
+
+
 def test_fusion_uses_llamaindex_rrf(kb_fixture):
-    """候选集来自 QueryFusionRetriever（RECIPROCAL_RANK）—— LlamaIndex 内建 RRF。"""
+    """RRF(k=60) 候选融合；独立调用 _fuse_candidates 仍可自行检索（向后兼容）。"""
     from app.db.session import SessionLocal
     from app.services.knowledge import retrieval as retrieval_mod
 

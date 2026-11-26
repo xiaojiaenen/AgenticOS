@@ -18,6 +18,8 @@ import json
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from app.services.agent.native.types import LLMResponseChunk
 from app.services.agent.native.tool_registry import ToolRegistry
 
@@ -366,6 +368,46 @@ def test_tool_metadata_alignment():
     assert by_name["calculate"].metadata["wuwei_tool"].parameters.to_schema()["type"] == "object"
 
 
+# ── 回归：usage 键名兼容（gateway 原生键 / Anthropic 风格键）──────────
+
+
+@pytest.mark.parametrize(
+    "usage, expected",
+    [
+        ({"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}, (10, 5, 15)),
+        ({"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}, (10, 5, 15)),
+        ({"prompt_tokens": 10, "completion_tokens": 5}, (10, 5, 15)),  # 无 total 时回退求和
+    ],
+)
+def test_streaming_usage_metadata_accepts_both_key_styles(usage, expected):
+    """gateway 出 prompt/completion，Anthropic 风格网关出 input/output。
+
+    两种键名都必须落到 AIMessageChunk.usage_metadata 的分项上，否则
+    usage_metadata 分项恒为 0（预算/计费/看板全部失真）。"""
+    from langchain_core.messages import AIMessageChunk, HumanMessage
+
+    from app.services.agent.langgraph_engine.chat_model import GatewayChatModel
+
+    class _UsageGateway(FakeGateway):
+        async def generate(self, messages, tools=None, stream=False, **kwargs):
+            async def _stream():
+                yield _chunk("答", finish_reason="stop", usage=usage)
+            return _stream()
+
+    model = GatewayChatModel(gateway=_UsageGateway(None), model_name="t")
+
+    async def _run():
+        acc = AIMessageChunk(content="")
+        async for chunk in model.astream([HumanMessage(content="hi")]):
+            acc = acc + chunk
+        return acc
+
+    acc = asyncio.run(_run())
+    assert acc.usage_metadata["input_tokens"] == expected[0]
+    assert acc.usage_metadata["output_tokens"] == expected[1]
+    assert acc.usage_metadata["total_tokens"] == expected[2]
+
+
 # ── 回归：流式累积 delta → LangChain 增量合并 ─────────────────────────
 
 
@@ -417,3 +459,124 @@ def test_streaming_cumulative_tool_deltas_merge_into_tool_calls():
     assert call["id"] == "call-9"
     # name 不应被逐帧拼接
     assert "calculatecalculate" not in str(acc.tool_call_chunks)
+
+
+def test_has_visible_body_keeps_tool_calls():
+    """带 tool_calls 的空 assistant 必须视为有可见内容。
+
+    否则 GET /messages 会把纯工具轮 assistant 过滤掉，前端刷新后
+    工具调用与结果一起消失（注释说要保留，实现曾漏判 tool_calls）。
+    """
+    from types import SimpleNamespace
+
+    from app.api.v1.endpoints.agent import _has_visible_body
+
+    msg = SimpleNamespace(
+        content="", reasoning_content=None, metadata=None,
+        tool_calls=[{"id": "c1", "name": "calc"}],
+    )
+    assert _has_visible_body(msg) is True
+
+
+def test_parse_tool_status_recognizes_langgraph_text_errors():
+    """LangGraph ToolNode 的纯文本校验错误不能被判成 success。
+
+    实测：模型调用 `ls {}`（缺必填 path）时工具结果是
+    "Error invoking tool 'ls' with kwargs {} with error:\n path: Field required"，
+    旧逻辑只认 JSON 里的 ok:false → 判成 success 落库，刷新后前端显示绿色
+    「已完成」。用户 2026-11-26 实测遇到。
+    """
+    from app.services.agent.langgraph_engine.engine import LangGraphAgent
+
+    parse = LangGraphAgent._parse_tool_status
+    assert parse("Error invoking tool 'ls' with kwargs {} with error:\n path: Field required") == "error"
+    assert parse("Tool invocation error: validation error") == "error"
+    assert parse('{"ok": false, "error": "boom"}') == "error"
+    # 正常结果仍是 success
+    assert parse('{"ok": true, "files": []}') == "success"
+    assert parse("一些普通输出") == "success"
+
+
+def test_sync_context_preserves_reasoning_and_tool_outcome():
+    """_sync_context 同步消息时必须保留思考与工具成功/失败态。"""
+    from types import SimpleNamespace
+
+    from app.services.agent.langgraph_engine.engine import LangGraphAgent
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    agent = LangGraphAgent.__new__(LangGraphAgent)
+    context = SimpleNamespace(_messages=[])
+    session = SimpleNamespace(context=context, session_id="s1")
+
+    ai = AIMessage(
+        content="",
+        tool_calls=[{"name": "calc", "args": {"expression": "1+1"}, "id": "c1"}],
+        additional_kwargs={"reasoning_content": "我需要算一下"},
+    )
+    tool = ToolMessage(content='{"ok": false, "error": "boom"}', tool_call_id="c1", name="calc")
+    agent._sync_context(session, [ai, tool])  # type: ignore[attr-defined]
+
+    assert len(context._messages) == 2
+    saved_ai, saved_tool = context._messages
+    assert saved_ai.reasoning_content == "我需要算一下"
+    assert len(saved_ai.tool_calls) == 1
+    assert saved_tool.metadata["tool_outcome"]["status"] == "error"
+    # status 列必须同步写 error：落库 → 读回靠它还原（见下方往返测试）
+    assert saved_tool.status == "error"
+
+
+def test_tool_outcome_survives_db_roundtrip(tmp_path):
+    """DB 往返：失败工具的 status/error 不能被读回端默认 success 覆盖。
+
+    原缺陷：_sync_context 只把 outcome 写进 metadata，status 列留默认
+    "success"；_message_from_row 读回时无条件用 status 覆盖
+    metadata.tool_outcome → error 被改成 success，刷新后失败工具"变绿"。
+    """
+    from langchain_core.messages import AIMessage, ToolMessage
+    from sqlalchemy import create_engine, select
+    from sqlalchemy.orm import sessionmaker
+
+    from app.db.models import AgentMessageModel, AgentSessionModel, Base
+    from app.services.agent.langgraph_engine.engine import LangGraphAgent
+    from app.services.agent.native.types import Message
+    from app.services.session_storage import DatabaseAgentStorage
+
+    db_path = tmp_path / "roundtrip.db"
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+
+    # 造一个带 context._messages 的最小 session 对象，与真实 AgentSession 同契约
+    from app.services.agent.native.types import AgentSession
+    session = AgentSession(session_id="s-roundtrip", system_prompt="", max_steps=30)
+    session.context.add_ai_message("working")
+    session.context.add_user_message("do it")
+
+    agent = LangGraphAgent.__new__(LangGraphAgent)
+    agent._sync_context(session, [  # type: ignore[attr-defined]
+        AIMessage(content="", tool_calls=[{"name": "calc", "args": {}, "id": "c1"}]),
+        ToolMessage(content='{"ok": false, "error": "boom"}', tool_call_id="c1", name="calc"),
+    ])
+
+    storage = DatabaseAgentStorage(session_factory=SessionLocal)
+    with SessionLocal() as db:
+        db.add(AgentSessionModel(
+            session_id="s-roundtrip", system_prompt="", user_id=None,
+        ))
+        db.commit()
+    asyncio.run(storage.append_messages_batch("s-roundtrip", list(session.context._messages)))
+
+    with SessionLocal() as db:
+        rows = db.scalars(
+            select(AgentMessageModel).where(AgentMessageModel.session_id == "s-roundtrip")
+        ).all()
+        # 确认落库时 status 已是 error（写入端回归守卫）
+        statuses = [r.status for r in rows]
+        assert "error" in statuses
+
+    loaded = asyncio.run(storage.load("s-roundtrip"))
+    loaded_tools = [m for m in loaded.context._messages if m.role == "tool"]
+    assert len(loaded_tools) == 1
+    assert loaded_tools[0].metadata["tool_outcome"]["status"] == "error", (
+        "读回后失败工具被改成了 success"
+    )

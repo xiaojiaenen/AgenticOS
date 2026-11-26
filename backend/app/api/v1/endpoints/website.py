@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from sqlalchemy.orm import Session
 
 from app.core.roles import is_admin_like
-from app.api.deps import get_current_user, get_db, require_admin, require_feature
+from app.api.deps import get_current_user, get_db, require_feature, require_perm
 from pathlib import Path
 from app.core.data_path import WEBSITES_DIR as _WEBSITES_DIR, _parse_dir_name
 from app.core.config import get_settings
@@ -201,7 +201,7 @@ admin_router = APIRouter(prefix="/admin/website", tags=["admin-website"])
 
 @admin_router.get("/deploys")
 def list_pending_deploys(
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
 ):
     """Admin: list all pending deploy requests."""
     return _service.list_pending()
@@ -210,7 +210,7 @@ def list_pending_deploys(
 @admin_router.get("/deploys/{deploy_id}/preview")
 def preview_deploy(
     deploy_id: int,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
 ):
     """Admin: 审批前看这个待部署项目长什么样。
 
@@ -245,7 +245,7 @@ def preview_deploy(
 
 @admin_router.get("/deploys/all")
 def list_all_deploys(
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
 ):
     """Admin: list all deploy requests."""
     return _service.list_all()
@@ -255,7 +255,7 @@ def list_all_deploys(
 async def review_deploy(
     deploy_id: int,
     with_ai: bool = Query(False, description="是否让模型给出风险评估"),
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
 ):
     """审批审阅包：完整对话 + 源码扫描 + （可选）AI 风险意见。
 
@@ -282,7 +282,7 @@ def decide_deploy(
     deploy_id: int,
     body: DeployDecisionRequest,
     http_request: Request,
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
     db: Session = Depends(get_db),
 ):
     """Admin: approve or reject a deploy request."""

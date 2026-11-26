@@ -107,6 +107,7 @@ def _auth(user_id: int, email: str, role: str = "user") -> dict[str, str]:
 
 
 def _create_kb(owner_id: int, *, slug: str, visibility: str = "public", team_id: int | None = None) -> int:
+    # team_id 参数保留是为了兼容旧测试的调用签名；team 共享已下线，不再写入模型。
     with create_db_session() as db:
         kb = KnowledgeBaseModel(
             name=slug,
@@ -115,7 +116,6 @@ def _create_kb(owner_id: int, *, slug: str, visibility: str = "public", team_id:
             purpose="",
             scope="org",
             owner_id=owner_id,
-            team_id=team_id,
             visibility=visibility,
         )
         db.add(kb)

@@ -93,24 +93,42 @@ class PublishedItemService:
         user_id: int,
         title: str,
         description: str = "",
+        is_admin: bool = False,
     ) -> dict[str, Any]:
         """提交发布申请。
 
         文件型作品**只能公开**（用户明确要求）：PPT/文档/表格没有服务端
         运行时，泄露即等于公开，所以不存在"私密发布"这种选项。
 
-        同一份产物重复申请时复用已有的 pending 记录（幂等）。
+        同一份产物重复申请时复用已有的 pending 记录（幂等）。幂等键包含
+        ``user_id``，避免攻击者复用他人的 pending 记录或篡改其标题/说明。
+
+        归属校验：``session_id`` / ``source_ref`` 必须属于当前用户（管理员
+        除外）—— 否则可以用他人 artifact_id 申请发布，审批通过后即拿到
+        他人产物的公开文件（IDOR）。
         """
         if kind not in KIND_LABELS:
             raise ValueError(f"不支持的产物类型: {kind}")
         if not source_ref:
             raise ValueError("缺少产物标识")
+        if not session_id:
+            raise ValueError("缺少会话标识")
 
         with self.session_factory() as db:
+            owner_id = self._resolve_source_owner(
+                db, kind=kind, session_id=session_id, source_ref=source_ref,
+            )
+            if not is_admin and owner_id != user_id:
+                raise ValueError("无权发布该会话/产物")
+            # 记录归属写**实际产物所有者**，管理员代办时 requested_by 才是管理员；
+            # 这样后续 _load_ppt_artifact 的归属校验与幂等键都以真实 owner 为准。
+            record_user_id = owner_id
+
             existing = db.scalar(
                 select(PublishedItemModel).where(
                     PublishedItemModel.kind == kind,
                     PublishedItemModel.source_ref == source_ref,
+                    PublishedItemModel.user_id == record_user_id,  # 幂等键含 user_id
                     PublishedItemModel.status == "pending",
                 )
             )
@@ -127,7 +145,7 @@ class PublishedItemService:
                 kind=kind,
                 session_id=session_id,
                 source_ref=source_ref,
-                user_id=user_id,
+                user_id=record_user_id,
                 title=(title or "").strip()[:200] or "未命名作品",
                 description=(description or "").strip()[:2000],
                 visibility="public",
@@ -141,6 +159,39 @@ class PublishedItemService:
             db.refresh(item)
             _logger.info("publish requested: kind=%s ref=%s user=%s", kind, source_ref, user_id)
             return self._serialize(item)
+
+    @staticmethod
+    def _resolve_source_owner(
+        db, *, kind: str, session_id: str, source_ref: str,
+    ) -> int:
+        """从产物本身解析出真实所有者 user_id；无法证明归属则拒绝（fail-closed）。"""
+        from app.db.models import AgentSessionModel, PptArtifactModel
+
+        # 会话必须存在；产物归属最终以会话的 user_id 为准
+        session = db.get(AgentSessionModel, session_id)
+        if session is None or session.user_id is None:
+            raise ValueError("会话不存在或无法确认归属")
+
+        if kind == KIND_PPT:
+            # PPT：source_ref = artifact_id，须存在且 session_id 与所填一致
+            artifact = db.get(PptArtifactModel, source_ref)
+            if artifact is None:
+                raise ValueError("PPT 产物不存在")
+            if artifact.session_id != session_id:
+                raise ValueError("产物与会话不匹配")
+            return int(session.user_id)
+
+        # 文档/表格：source_ref = u{uid}_s{session}_v{n}，解析出的 uid 必须与
+        # 会话所有者一致（防止用他人版本目录名 + 自己的 session 拼装）
+        from app.core.data_path import parse_dir_name
+
+        parsed = parse_dir_name(source_ref)
+        if parsed is None:
+            raise ValueError("非法的产物标识")
+        ref_uid, ref_session, _ = parsed
+        if ref_session != session_id or ref_uid != session.user_id:
+            raise ValueError("产物与会话不匹配")
+        return int(ref_uid)
 
     # ── 审批 ────────────────────────────────────────────────────────────
 
@@ -235,9 +286,9 @@ class PublishedItemService:
 
         from app.services.agent.artifacts import ArtifactFactory
 
-        db_artifact = self._load_ppt_artifact(item.source_ref)
+        db_artifact = self._load_ppt_artifact(item.source_ref, item)
         if not db_artifact:
-            raise FileNotFoundError(f"PPT 产物不存在: {item.source_ref}")
+            raise FileNotFoundError(f"PPT 产物不存在或归属不匹配: {item.source_ref}")
 
         deck = json.loads(db_artifact.get("deck_json") or "{}")
         theme = deck.get("theme") or "apple"
@@ -258,18 +309,26 @@ class PublishedItemService:
         )
         out_path.write_bytes(data)
 
-    def _load_ppt_artifact(self, artifact_id: str) -> dict[str, Any] | None:
-        """读 PPT 产物（同步版）。
+    def _load_ppt_artifact(self, artifact_id: str, item: PublishedItemModel) -> dict[str, Any] | None:
+        """读 PPT 产物（同步版），并按发布记录校验归属。
 
         ``PptArtifactService.get`` 是 async（为的是不阻塞事件循环），
         但发布审批走的是同步线程池路径 —— 直接查库更稳，也避免在同步
         上下文里"忘记 await"（那会静默拿到 coroutine 对象而不是数据）。
+
+        归属校验：artifact 的 session_id 必须与发布记录的 session_id 一致，
+        且该 session 属于发布记录的 user_id（管理员代为申请时也按记录里的
+        user_id 校验）。否则即便有人篡改了 pending 记录的 source_ref，也
+        拿不到他人产物内容。
         """
-        from app.db.models import PptArtifactModel
+        from app.db.models import AgentSessionModel, PptArtifactModel
 
         with self.session_factory() as db:
             row = db.get(PptArtifactModel, artifact_id)
-            if row is None:
+            if row is None or row.session_id != item.session_id:
+                return None
+            session = db.get(AgentSessionModel, item.session_id)
+            if session is None or session.user_id != item.user_id:
                 return None
             return {
                 "artifact_id": row.artifact_id,
@@ -372,12 +431,20 @@ class PublishedItemService:
 
         base = SHEETS_DIR if kind == "sheet" else DOCUMENTS_DIR
         filename = "workbook.json" if kind == "sheet" else "document.json"
-        path = base / source_ref / filename
+        # 白名单化 source_ref：resolve 后必须仍落在 base 下，拒绝 .. 逃逸 /
+        # 绝对路径注入（审批时导出他人文件 / 系统文件）。
+        try:
+            base_resolved = base.resolve()
+            version_dir = (base / source_ref).resolve()
+            version_dir.relative_to(base_resolved)  # ValueError = 越界
+        except (ValueError, OSError, RuntimeError):
+            _logger.warning("发布审批：非法 source_ref（路径越界）: %s", source_ref)
+            return None
+        path = version_dir / filename
         if not path.is_file():
             # 目录存在但缺快照文件 = 历史遗留的空版本目录（早期 build 直接
             # write_text，中途失败会留下它）。日志要把诊断说清楚，管理员才
             # 知道「不是审批坏了，是这份产物的快照没落盘」。
-            version_dir = base / source_ref
             try:
                 exists = version_dir.is_dir()
                 contents = [p.name for p in version_dir.iterdir()][:5] if exists else None
@@ -444,6 +511,17 @@ class PublishedItemService:
         with self.session_factory() as db:
             rows = db.scalars(
                 select(PublishedItemModel)
+                .order_by(PublishedItemModel.created_at.desc())
+                .limit(limit)
+            ).all()
+            return [self._serialize(r) for r in rows]
+
+    def list_by_user(self, user_id: int, limit: int = 200) -> list[dict[str, Any]]:
+        """按用户下推查询发布记录，避免先取全量前 200 条再内存过滤导致新记录不可见。"""
+        with self.session_factory() as db:
+            rows = db.scalars(
+                select(PublishedItemModel)
+                .where(PublishedItemModel.user_id == user_id)
                 .order_by(PublishedItemModel.created_at.desc())
                 .limit(limit)
             ).all()

@@ -130,7 +130,10 @@ class LLMConcurrencyGate:
             yield
         finally:
             if token is not None:
-                self._release_global(token)
+                # 槽位归还含同步 Redis eval —— _release_global 内部已 to_thread，
+                # 这里 await 保证释放完成（取消时 finally 仍会跑到这一步；
+                # 首次 CancelledError 投递后 finally 内的 await 正常完成）。
+                await self._release_global(token)
             if acquired_local:
                 local.release()
 
@@ -180,8 +183,11 @@ class LLMConcurrencyGate:
             _logger.warning("LLM gate: global acquire failed, falling back to local semaphore: %s", e)
             return None
 
-    def _release_global(self, token: str) -> None:
-        """幂等释放全局槽位（Lua 保证重复调用安全）。"""
+    async def _release_global(self, token: str) -> None:
+        """幂等释放全局槽位（Lua 保证重复调用安全）。
+
+        Redis 的 eval 是同步调用，放到线程里执行，避免阻塞事件循环。
+        """
         self._held_tokens.discard(token)
         if is_redis_memory():
             return
@@ -189,11 +195,14 @@ class LLMConcurrencyGate:
         if client is None:
             return
         try:
-            client.eval(_RELEASE_LUA, 2, _GATE_KEY, f"{_GATE_KEY}:{token}")
+            # 同步 Redis 客户端会阻塞事件循环，放到线程里执行
+            await asyncio.to_thread(
+                client.eval, _RELEASE_LUA, 2, _GATE_KEY, f"{_GATE_KEY}:{token}"
+            )
         except Exception as e:  # noqa: BLE001 —— 释放失败靠租约 TTL 兜底
             _logger.warning("LLM gate: global release failed for token %s: %s", token, e)
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """释放本进程仍持有的全部全局槽位（lifespan 关闭钩子）。
 
         正常路径下 slot() 的 finally 已经归还；这里覆盖进程被取消 /
@@ -204,7 +213,7 @@ class LLMConcurrencyGate:
         pending = list(self._held_tokens)
         _logger.info("LLM gate shutdown: releasing %d held slot(s)", len(pending))
         for token in pending:
-            self._release_global(token)
+            await self._release_global(token)
 
     def current_global_count(self) -> int | None:
         """当前全局占用数（诊断用；Redis 不可用返回 None）。"""

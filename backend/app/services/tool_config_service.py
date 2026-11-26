@@ -55,6 +55,7 @@ AGENT_MODES = {
 _GLOBAL_TOOL_REGISTRARS: list[tuple[str, str]] = [
     ("app.tools.chart_render_tools", "register_chart_render_tools"),
     ("app.tools.data_analysis_tools", "register_data_analysis_tools"),
+    ("app.tools.dataframe_tools", "register_dataframe_tools"),
     ("app.services.a2ui", "register_a2ui_tools"),
     ("app.tools.image_gen_tools", "register_image_gen_tools"),
     # 作用域文件工具：所有模式共用（factory 里会先卸载内置 file 插件）
@@ -178,7 +179,9 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "convert_pptx_to_svg": {"enabled": True, "requires_approval": True},
             "import_pptx_template": {"enabled": True, "requires_approval": True},
             "search_images": {"enabled": True, "requires_approval": False},
-            "get_image_info": {"enabled": True, "requires_approval": False},
+            # 出网 HTTP（用户可控 URL）→ 纳入 HITL 审批，与运行时
+            # registry.tool(requires_approval=True) 一致。
+            "get_image_info": {"enabled": True, "requires_approval": True},
             "read_notes": {"enabled": True, "requires_approval": False},
             "batch_edit_slides": {"enabled": True, "requires_approval": False},
             "email": {"enabled": False, "requires_approval": True},
@@ -673,6 +676,13 @@ TOOL_CATALOG = {
         "approval_scope": [],
         "sub_tools": {},
     },
+    "analyze_with_pandas": {
+        "label": "代码数据分析",
+        "description": "写代码做灵活数据分析（内置 pandas/numpy/scipy，禁止安装其他库）：分组聚合、透视、清洗、统计检验；可导出 CSV/Excel/JSON 到会话工作区。安全沙箱执行。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
     "search_images": {
         "label": "搜索图片",
         "description": "搜索免费商用图片，支持 Openverse、Wikimedia、Pexels、Pixabay 等多个来源。",
@@ -682,10 +692,12 @@ TOOL_CATALOG = {
     },
     "get_image_info": {
         "label": "图片信息",
-        "description": "获取图片的元数据信息（尺寸、格式、是否可用）。",
+        "description": "获取图片的元数据信息（尺寸、格式、是否可用）。会向用户提供的 URL 发起 HTTP 请求，纳入审批。",
         "builtin_name": None,
-        "approval_scope": [],
-        "sub_tools": {},
+        "approval_scope": ["get_image_info"],
+        "sub_tools": {
+            "get_image_info": {"label": "获取图片信息", "description": "访问外部 URL 读取图片元数据"},
+        },
     },
     "read_notes": {
         "label": "读取演讲者备注",

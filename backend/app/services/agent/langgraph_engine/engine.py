@@ -1,4 +1,4 @@
-"""LangGraph 编排引擎（全新系统核心，wuwei 已退役）。
+"""DeepAgents 编排引擎（全新系统核心，wuwei 已退役）。
 
 ``LangGraphAgent`` 是唯一的 Agent 引擎，保留被消费面：
 
@@ -6,16 +6,18 @@
 2. ``create_or_get_session(...)``（自有 ``AgentSession``）；
 3. ``stream_events(user_message, session)`` —— 异步生成器，吐出 ``AgentEvent``。
 
-编排走 LangChain ``create_agent``（底层 LangGraph）。移植语义全部内建：
+编排走 DeepAgents ``create_deep_agent``（底层 LangGraph）。差异化语义内建：
 
-- **工具配对修复**（原 ToolPairRepairMiddleware）：残缺历史补失败结果、删孤立结果；
-- **思考历史兼容**（原 ThinkingHistoryCompatibilityMiddleware）：剔除步数上限合成回复；
-- **上下文压缩**（原 ContextCompressionMiddleware 全量移植）；
-- **Skill 指令注入**（原 SkillInstructionMiddleware）+ allowed_tools 白名单强制；
-- **预算断路**（原 BudgetMiddleware）；
-- **异步子代理**（原 AsyncSubAgentMiddleware，引擎自执行）；
-- **工具输出截断**（原 ToolExecutor serialize 语义）；
+- **工具配对修复**：残缺历史补失败结果、删孤立结果；
+- **思考历史兼容**：剔除步数上限合成回复，适配 provider 思考模式；
+- **HITL 审批**（EngineApprovalPolicy，工具包装层）：ask/auto/full 三档 +
+  四决策，真实 tool_call_id 由 ToolRuntime 注入；
+- **预算断路**（自研 Budget，DeepAgents 无等价计费语义）；
+- **工具输出截断**（MAX_TOOL_OUTPUT_CHARS）；
 - **max_steps 步数上限**：截断时写入合成回复（下一轮被 thinking-compat 剔除）。
+
+文件 / Skill / 上下文压缩 / 子代理已由 DeepAgents 内置 middleware 接管
+（FilesystemBackend，bound 到 data/），本模块只做适配与差异化语义。
 """
 
 from __future__ import annotations
@@ -58,6 +60,8 @@ class _UsageTracker:
         self.latency_ms = 0
         self.usage: dict[str, int] = {}
         self.usage_available = True
+        # 软阈值告警每 run 只打一次（原 self._budget_warned 从未回写，导致刷屏）
+        self.budget_warned = False
 
     def record_llm_call(self, *, latency_ms: int, usage_emitted: bool) -> None:
         self.llm_calls += 1
@@ -78,15 +82,20 @@ class _UsageTracker:
             "total_tokens",
             self.usage.get("input_tokens", 0) + self.usage.get("output_tokens", 0),
         )
+        input_tokens = self.usage.get("input_tokens", self.usage.get("prompt_tokens", 0))
+        output_tokens = self.usage.get("output_tokens", self.usage.get("completion_tokens", 0))
         return {
-            "input_tokens": self.usage.get("input_tokens", self.usage.get("prompt_tokens", 0)),
-            "output_tokens": self.usage.get("output_tokens", self.usage.get("completion_tokens", 0)),
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            # LLM 网关原生键名：budget.estimate_cost 与部分 provider 都读这一组
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens,
             "total_tokens": total,
         }
 
 
 class LangGraphAgent:
-    """唯一的 Agent 引擎（编排 LangChain create_agent / 底层 LangGraph）。"""
+    """唯一的 Agent 引擎（DeepAgents create_deep_agent / 底层 LangGraph）。"""
 
     def __init__(
         self,
@@ -108,6 +117,8 @@ class LangGraphAgent:
         deepagents_skills: list[str] | None = None,
         deepagents_subagents: list[dict] | None = None,
         deepagents_memory: list[str] | None = None,
+        deepagents_permissions: list[Any] | None = None,
+        deepagents_middleware: list[Any] | None = None,
     ) -> None:
         self.llm = llm
         self.tool_registry = tools
@@ -125,13 +136,20 @@ class LangGraphAgent:
         self._deepagents_skills = deepagents_skills
         self._deepagents_subagents = deepagents_subagents
         self._deepagents_memory = deepagents_memory
+        self._deepagents_permissions = deepagents_permissions
+        self._deepagents_middleware = deepagents_middleware
         self._sessions: dict[str, Any] = {}
         self._skill_injected: set[str] = set()
 
         self._lc_tools = registry_to_langchain_tools(tools, approval_policy)
         self._chat_model = GatewayChatModel(gateway=llm, model_name=model_name)
-        # DeepAgents harness：内置 filesystem / skills / subagents / summarization
-        # middleware 全部通过 create_deep_agent 参数启用（用它的 backend）。
+        # 图延迟到首次 stream 时构建：AsyncSqliteSaver 必须在事件循环里创建，
+        # 且 checkpointer 绑定 loop —— 每个事件循环一个 (graph, checkpointer)。
+        self._graphs: dict[Any, Any] = {}
+        self._checkpointers: dict[Any, Any] = {}
+
+    def _build_graph(self, checkpointer: Any | None) -> Any:
+        """用给定 checkpointer 构建 DeepAgents 图（每 loop 一次）。"""
         from deepagents import create_deep_agent
 
         graph_kwargs: dict[str, Any] = {
@@ -147,7 +165,29 @@ class LangGraphAgent:
             graph_kwargs["subagents"] = self._deepagents_subagents
         if self._deepagents_memory:
             graph_kwargs["memory"] = self._deepagents_memory
-        self._graph = create_deep_agent(**graph_kwargs)
+        if self._deepagents_permissions:
+            graph_kwargs["permissions"] = self._deepagents_permissions
+        if self._deepagents_middleware:
+            graph_kwargs["middleware"] = self._deepagents_middleware
+        if checkpointer is not None:
+            graph_kwargs["checkpointer"] = checkpointer
+        return create_deep_agent(**graph_kwargs)
+
+    async def _graph_for_current_loop(self) -> tuple[Any, Any | None]:
+        """当前事件循环的 (graph, checkpointer)，首次调用时惰性构建。"""
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        graph = self._graphs.get(loop)
+        if graph is not None:
+            return graph, self._checkpointers.get(loop)
+        from app.services.agent.checkpointer import get_async_checkpointer
+
+        cp = await get_async_checkpointer()
+        graph = self._build_graph(cp)
+        self._graphs[loop] = graph
+        self._checkpointers[loop] = cp
+        return graph, cp
 
     # ── 会话管理（被消费面）────────────────────────────────────────────
 
@@ -256,8 +296,12 @@ class LangGraphAgent:
         # 本轮用户输入进会话上下文（持久化契约；压缩后的历史不含它）
         self._append_user_message(session, user_input)
 
+        graph, cp = await self._graph_for_current_loop()
         recursion_limit = max(8, int(getattr(session, "max_steps", self.default_max_steps)) * 2 + 4)
         config = {"recursion_limit": recursion_limit}
+        # 阶段 2A：checkpointer 用 thread_id 做会话隔离（官方约定）。
+        if cp is not None:
+            config["configurable"] = {"thread_id": session.session_id}
         max_steps = int(getattr(session, "max_steps", self.default_max_steps))
         truncated = False
         had_error = False
@@ -266,7 +310,7 @@ class LangGraphAgent:
         self._chat_model._usage_tracker = tracker  # noqa: SLF001 —— 每 run 挂 tracker
 
         try:
-            async for mode, payload in self._graph.astream(
+            async for mode, payload in graph.astream(
                 {"messages": lc_history}, config=config, stream_mode=["updates", "messages"]
             ):
                 if mode == "messages":
@@ -294,17 +338,19 @@ class LangGraphAgent:
                                 message.response_metadata or {}
                             ).get("usage")
                             tracker.add_usage(usage)
+                            # 预算检查放在每次 AIMessage 产出后（无论是否带
+                            # tool_calls）：纯文本回答同样累计 usage，此前只在
+                            # 工具调用分支检查会让单次长回答绕过 token/cost 上限。
+                            if self.budget is not None:
+                                check_budget(
+                                    self.budget,
+                                    tracker.snapshot(),
+                                    tracker.llm_calls,
+                                    self._spend(tracker),
+                                    usage_available=tracker.usage_available,
+                                )
                             if message.tool_calls:
                                 step += 1
-                                # 预算检查（原 BudgetMiddleware.before_llm 等价点）
-                                if self.budget is not None:
-                                    check_budget(
-                                        self.budget,
-                                        tracker.snapshot(),
-                                        tracker.llm_calls,
-                                        self._spend(tracker),
-                                        usage_available=tracker.usage_available,
-                                    )
                                 for call in message.tool_calls:
                                     tool = self.tool_registry.get(str(call.get("name") or ""))
                                     metadata = (
@@ -442,6 +488,13 @@ class LangGraphAgent:
         for msg in produced:
             if isinstance(msg, AIMessage):
                 ai = NativeAIMessage(content=msg.content if isinstance(msg.content, str) else str(msg.content))
+                # 思考内容必须同步进 session.context，否则 model_dump_json(
+                # exclude_none=True) 落库时 reasoning_content 为 null —— 用户
+                # 刷新后思考永久消失（实时 SSE 正常，掩盖了这个写入端回归）。
+                # 与 chat_model.lc_to_native_messages 保持同一取法。
+                reasoning = (msg.additional_kwargs or {}).get("reasoning_content")
+                if reasoning:
+                    ai.reasoning_content = reasoning
                 for call in msg.tool_calls or []:
                     ai.tool_calls.append(
                         NativeToolCall(
@@ -454,11 +507,20 @@ class LangGraphAgent:
                     )
                 context._messages.append(ai)
             elif isinstance(msg, ToolMessage):
+                # 落库工具结果的成功/失败态：前端 mapper 按 metadata.tool_outcome
+                # 还原刷新后的工具状态。不带的话一律显示 success，刷新后红色
+                # 失败工具会"变绿"（实时 SSE 正常，掩盖了这个写入端遗漏）。
+                outcome = self._parse_tool_status(msg.content)
                 context._messages.append(
                     NativeToolMessage(
                         content=msg.content if isinstance(msg.content, str) else str(msg.content),
                         tool_call_id=str(msg.tool_call_id or ""),
                         name=str(msg.name or ""),
+                        # status 列单独落库（append_messages_batch 取 msg.status），
+                        # 不设的话默认是 "success" —— 刷新后 metadata.tool_outcome
+                        # 会被读回端的 status 列无条件覆盖成 success（失败工具"变绿"）。
+                        status=outcome,
+                        metadata={"tool_outcome": {"status": outcome}},
                     )
                 )
         _logger.debug("langgraph: synced %d produced messages to session %s", len(produced), session.session_id)
@@ -474,18 +536,36 @@ class LangGraphAgent:
     def _spend(self, tracker: _UsageTracker) -> Any:
         from app.services.agent.native.budget import RunSpend
 
-        return RunSpend(
-            model=self.model_name,
-            warned=getattr(self, "_budget_warned", False),
-            cost_usd=estimate_cost(tracker.snapshot(), self.model_name),
-        )
+        # 每个 run 复用同一个 RunSpend：check_budget 会把软阈值告警标记写到
+        # spend.warned 上，若每次新建就永远读不到，导致 80% 告警重复刷屏。
+        if getattr(tracker, "_spend", None) is None:
+            tracker._spend = RunSpend(model=self.model_name, warned=False, cost_usd=0.0)
+        tracker._spend.cost_usd = estimate_cost(tracker.snapshot(), self.model_name)
+        return tracker._spend
 
     # ── 工具结果解析 ────────────────────────────────────────────────────
 
+    # LangGraph / ToolNode 在工具参数 schema 校验失败、handler 抛异常时，
+    # 给出的不是 JSON，而是形如
+    #   "Error invoking tool 'ls' with kwargs {} with error:\n path: Field required"
+    # 的纯文本。此前只认 `ok:false` → 这类失败被判成 success 落库，
+    # 刷新后前端把失败工具显示成绿色「已完成」（用户实测遇到）。
+    _TOOL_ERROR_TEXT_MARKERS = (
+        "error invoking tool",
+        "tool invocation error",
+        "field required",
+        "validation error",
+        "tool not found",
+    )
+
     @staticmethod
     def _parse_tool_status(content: Any) -> str:
-        """ok:false → error（orchestrator 同口径）。"""
+        """ok:false / 纯文本工具错误 → error（orchestrator 同口径）。"""
         if isinstance(content, str):
+            lowered = content.strip().lower()
+            # LangGraph ToolNode 的校验/调用失败文本
+            if any(marker in lowered for marker in LangGraphAgent._TOOL_ERROR_TEXT_MARKERS):
+                return "error"
             try:
                 payload = json.loads(content)
             except (json.JSONDecodeError, TypeError):

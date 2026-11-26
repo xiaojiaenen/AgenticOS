@@ -13,13 +13,16 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func, and_, delete, or_
 from sqlalchemy.orm import Session
 
 from app.core.roles import is_admin_like
-from app.api.deps import filter_readable_kb_ids, get_current_user, get_db, require_admin, require_kb_access
+from app.api.deps import (
+    filter_readable_kb_ids, get_current_user, get_db,
+    require_kb_access, require_perm,
+)
 from app.db.models import (
     UserModel,
     KnowledgeBaseModel,
@@ -66,7 +69,7 @@ def _grant_kb_ownership(db, kb_id: int, owner: UserModel) -> None:
         service.add_policy(subject, "*", f"kb:{kb_id}", act)
 
 
-def _kb_access(db, request, current_user: UserModel, kb_id: int, action: str):
+def _kb_access(db, request, current_user: UserModel, kb_id: int, action: str, permission_point: str | None = None):
     """require_kb_access + 拒绝审计。
 
     越权尝试本身就是审计里最值得看的一类事件，所以 403 也要落库
@@ -74,7 +77,7 @@ def _kb_access(db, request, current_user: UserModel, kb_id: int, action: str):
     """
 
     try:
-        return require_kb_access(db, current_user, kb_id, action)
+        return require_kb_access(db, current_user, kb_id, action, permission_point=permission_point)
     except HTTPException as exc:
         _audit(
             request, db, action=f"knowledge.{action}", current_user=current_user, result="deny",
@@ -94,7 +97,7 @@ class KnowledgeBaseCreate(BaseModel):
     slug: Optional[str] = Field(None, max_length=200)
     description: str = ""
     purpose: str = ""
-    scope: str = Field("org", pattern="^(org|team|personal)$")
+    scope: str = Field("org", pattern="^(org|personal)$")
     visibility: str = Field("public", pattern="^(public|restricted|private)$")
 
 
@@ -187,17 +190,23 @@ class KBACLReplace(BaseModel):
 
 @router.get("/bases", response_model=list[KnowledgeBaseResponse])
 def list_knowledge_bases(
+    response: Response,
     limit: int = Query(200, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出当前用户可见的知识库（Casbin 行级过滤 + visibility/scope 过滤）。"""
+    """列出当前用户可见的知识库（Casbin 行级过滤 + visibility/scope 过滤）。
+
+    limit/offset 真正生效；X-Total-Count 给出过滤后的总数供前端分页。
+    """
     candidates = db.execute(
         select(KnowledgeBaseModel).where(KnowledgeBaseModel.is_active.is_(True))
     ).scalars().all()
     readable = filter_readable_kb_ids(db, current_user, [kb.id for kb in candidates])
     all_kbs = [kb for kb in candidates if kb.id in readable]
+    response.headers["X-Total-Count"] = str(len(all_kbs))
+    all_kbs = all_kbs[offset:offset + limit]
 
     if all_kbs:
         kb_ids = [kb.id for kb in all_kbs]
@@ -243,9 +252,9 @@ def create_knowledge_base(
     request: KnowledgeBaseCreate,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("kb:create")),
 ):
-    """创建知识库（仅 admin；创建者自动获得该库的读写删授权）"""
+    """创建知识库（需 kb:create 权限点；矩阵可配置，创建者自动获得读写删授权）"""
     # 生成 slug
     slug = request.slug or request.name.lower().replace(" ", "-")
     slug = "".join(c for c in slug if c.isalnum() or c == "-")[:200]
@@ -345,7 +354,7 @@ def update_knowledge_base(
     current_user: UserModel = Depends(get_current_user),
 ):
     """更新知识库（需 kb:write；admin 全权，dept_admin 限本部门）"""
-    kb = _kb_access(db, http_request, current_user, kb_id, "write")
+    kb = _kb_access(db, http_request, current_user, kb_id, "write", permission_point="kb:edit")
 
     if request.name is not None:
         kb.name = request.name
@@ -404,7 +413,7 @@ def delete_knowledge_base(
     current_user: UserModel = Depends(get_current_user),
 ):
     """删除知识库（需 kb:delete）"""
-    kb = _kb_access(db, http_request, current_user, kb_id, "delete")
+    kb = _kb_access(db, http_request, current_user, kb_id, "delete", permission_point="kb:delete")
     slug = kb.slug
     # 删除相关数据（顺序：叶子 → 主干，切片/授权先清，避免悬空引用）
     db.execute(delete(KBChunkModel).where(KBChunkModel.knowledge_base_id == kb_id))
@@ -422,6 +431,11 @@ def delete_knowledge_base(
     db.execute(delete(KBReviewItemModel).where(KBReviewItemModel.knowledge_base_id == kb_id))
     db.delete(kb)
     db.commit()
+    # 删除知识库后必须失效检索器进程内缓存，否则最长 5 分钟内仍能搜到
+    # 已删除库的 Wiki 页内容（编译链路已有此调用，删除路径曾遗漏）。
+    from app.services.knowledge.retrieval import invalidate_knowledge_cache
+
+    invalidate_knowledge_cache()
 
     _audit(
         http_request, db, action="knowledge.delete", current_user=current_user,
@@ -466,7 +480,7 @@ def replace_kb_acl(
     """
     from app.services.knowledge.acl import list_grants, replace_grants
 
-    kb = _kb_access(db, http_request, current_user, kb_id, "read")
+    kb = _kb_access(db, http_request, current_user, kb_id, "read", permission_point="kb:acl")
     if not is_admin_like(current_user.role) and kb.owner_id != current_user.id:
         _audit(
             http_request, db, action="knowledge.acl_update", current_user=current_user,
@@ -531,17 +545,20 @@ def replace_kb_acl(
 def list_documents(
     http_request: Request,
     kb_id: int,
+    response: Response,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出知识库中的文档"""
+    """列出知识库中的文档。响应头 X-Total-Count 给出总数（服务端分页用）。"""
     _kb_access(db, http_request, current_user, kb_id, "read")
 
-    stmt = select(KBDocumentModel).where(
-        KBDocumentModel.knowledge_base_id == kb_id
-    ).order_by(KBDocumentModel.created_at.desc()).offset(offset).limit(limit)
+    base = select(KBDocumentModel).where(KBDocumentModel.knowledge_base_id == kb_id)
+    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    response.headers["X-Total-Count"] = str(total)
+
+    stmt = base.order_by(KBDocumentModel.created_at.desc()).offset(offset).limit(limit)
 
     result = db.execute(stmt)
     documents = result.scalars().all()
@@ -572,7 +589,7 @@ async def upload_document(
 ):
     """上传文档并提交编译任务到后台队列（需 kb:write）"""
     # 检查知识库
-    kb = _kb_access(db, http_request, current_user, kb_id, "write")
+    kb = _kb_access(db, http_request, current_user, kb_id, "write", permission_point="kb:upload")
 
     # 检查文件类型
     allowed_types = {"pdf", "docx", "md", "markdown", "html", "htm", "txt"}
@@ -592,6 +609,13 @@ async def upload_document(
     file_path = upload_dir / file_name
 
     content = await file.read()
+    # 限制单文件大小：避免一次上传把内存打爆（全局请求体上限 32MB，
+    # 这里留余量设 30MB）。超限直接 413，不落盘、不建文档记录。
+    if len(content) > 30 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="单个文档不能超过 30MB，请拆分后再上传",
+        )
     # MB 级文件写盘挪出事件循环（横切 P0 9.1；与 files.py 的样板一致）
     await asyncio.to_thread(file_path.write_bytes, content)
 
@@ -701,7 +725,7 @@ def delete_document(
     current_user: UserModel = Depends(get_current_user),
 ):
     """删除文档：清理文件、Wiki 页面 sources 引用与图谱链接（需 kb:delete）。"""
-    _kb_access(db, http_request, current_user, kb_id, "delete")
+    _kb_access(db, http_request, current_user, kb_id, "delete", permission_point="kb:delete")
     doc = db.get(KBDocumentModel, doc_id)
     if not doc or doc.knowledge_base_id != kb_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文档不存在")
@@ -750,11 +774,61 @@ def delete_document(
 
     db.delete(doc)
     db.commit()
+    # 删除文档会连带删 Wiki 页，同样必须失效检索缓存（否则脏读 5 分钟）
+    from app.services.knowledge.retrieval import invalidate_knowledge_cache
+
+    invalidate_knowledge_cache()
 
     _audit(
         http_request, db, action="knowledge.document_delete", current_user=current_user,
         resource_type="kb_document", resource_id=doc_id, detail={"knowledge_base_id": kb_id},
     )
+
+
+@router.post("/bases/{kb_id}/documents/{doc_id}/recompile", summary="重新编译单个文档")
+async def recompile_document(
+    http_request: Request,
+    kb_id: int,
+    doc_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """重新编译失败的文档（用户自助恢复，无需 superadmin 到运维台重试）。"""
+    _kb_access(db, http_request, current_user, kb_id, "write", permission_point="kb:upload")
+    doc = db.get(KBDocumentModel, doc_id)
+    if doc is None or doc.knowledge_base_id != kb_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文档不存在")
+
+    # 重置状态并重新提交编译（复用上传端点的队列/同步兜底逻辑）
+    doc.status = "pending"
+    doc.error_message = None
+    db.commit()
+    try:
+        from app.services.task_queue import submit_document_compilation
+
+        task_id = await submit_document_compilation(doc.id, kb_id)
+    except Exception as exc:  # noqa: BLE001
+        import logging
+
+        logging.getLogger(__name__).warning("recompile 队列提交失败，回退同步: %s", exc)
+        from app.services.knowledge.ingest_pipeline import process_document_ingest
+        from app.services.task_queue import build_llm_gateway
+
+        await asyncio.to_thread(process_document_ingest, doc.id, kb_id, build_llm_gateway())
+        task_id = None
+
+    _audit(
+        http_request, db, action="knowledge.document_recompile", current_user=current_user,
+        resource_type="kb_document", resource_id=doc_id,
+        detail={"knowledge_base_id": kb_id, "task_id": task_id},
+    )
+    db.refresh(doc)
+    return {
+        "document_id": doc_id,
+        "status": doc.status,
+        "error_message": doc.error_message,
+        "task_id": task_id,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -766,13 +840,14 @@ def delete_document(
 def list_wiki_pages(
     http_request: Request,
     kb_id: int,
+    response: Response,
     page_type: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出 Wiki 页面（先做知识库行级鉴权）。"""
+    """列出 Wiki 页面（先做知识库行级鉴权）。X-Total-Count 给出总数。"""
     _kb_access(db, http_request, current_user, kb_id, "read")
 
     conditions = [
@@ -782,7 +857,11 @@ def list_wiki_pages(
     if page_type:
         conditions.append(KBWikiPageModel.page_type == page_type)
 
-    stmt = select(KBWikiPageModel).where(and_(*conditions)).order_by(KBWikiPageModel.title).offset(offset).limit(limit)
+    base = select(KBWikiPageModel).where(and_(*conditions))
+    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    response.headers["X-Total-Count"] = str(total)
+
+    stmt = base.order_by(KBWikiPageModel.title).offset(offset).limit(limit)
     result = db.execute(stmt)
     pages = result.scalars().all()
 
@@ -948,7 +1027,7 @@ def reindex_knowledge_base_endpoint(
     from app.services.knowledge.chunk_index import chunk_stats
     from app.services.knowledge.ingest_pipeline import reindex_knowledge_base
 
-    _kb_access(db, http_request, current_user, kb_id, "write")
+    _kb_access(db, http_request, current_user, kb_id, "write", permission_point="kb:reindex")
 
     # 本端点是同步定义，FastAPI 会放到线程池执行，不会阻塞事件循环
     stats = reindex_knowledge_base(kb_id, force=force, limit=limit)
@@ -985,7 +1064,7 @@ def scan_conflicts_endpoint(
     """
     from app.services.knowledge.conflict_scanner import scan_knowledge_base
 
-    _kb_access(db, http_request, current_user, kb_id, "write")
+    _kb_access(db, http_request, current_user, kb_id, "write", permission_point="kb:edit")
 
     # 同步定义 → FastAPI 放线程池执行，全库扫描不阻塞事件循环
     stats = scan_knowledge_base(db, kb_id, max_pages=max_pages, use_llm=use_llm)
@@ -1128,7 +1207,7 @@ def get_knowledge_graph(
 
 @router.get("/metrics/search-quality", summary="检索质量在线指标（命中率 / 无结果率 / 延迟分位）")
 async def search_quality_metrics(
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("audit:metrics")),
 ) -> dict:
     """进程内滑动窗口的检索质量汇总（优化方案 2.4/3.5）。
 

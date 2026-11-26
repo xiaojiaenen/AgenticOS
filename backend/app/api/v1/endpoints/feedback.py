@@ -8,7 +8,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_perm
 from app.db.models import UserModel
 from app.schemas.feedback import (
     FeedbackCommentCreateRequest,
@@ -98,7 +98,7 @@ def comment_feedback(
 
 # ── 管理侧 ──────────────────────────────────────────────────
 @admin_router.get("/stats", response_model=FeedbackStatsResponse)
-def admin_feedback_stats(_: UserModel = Depends(require_admin)) -> dict:
+def admin_feedback_stats(_: UserModel = Depends(require_perm("gallery:approve"))) -> dict:
     # 管理员看全量（含 private）
     return _service.stats(_)
 
@@ -111,7 +111,7 @@ def admin_list_feedback(
     type_filter: str | None = Query(default=None, alias="type"),
     search: str | None = Query(default=None, max_length=200),
     sort: str = Query(default="newest", pattern="^(votes|newest|active)$"),
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
 ) -> dict:
     return _service.list_issues(
         admin, page=page, page_size=page_size, status=status_filter,
@@ -125,7 +125,7 @@ def admin_update_feedback(
     payload: FeedbackStatusUpdateRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
 ) -> dict:
     try:
         result = _service.update_status(issue_id, payload, admin)
@@ -145,7 +145,7 @@ def admin_reply_feedback(
     payload: FeedbackCommentCreateRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
 ) -> dict:
     # 通知所需的作者信息：只取一次，且必须在评论写入之前（写入后行可能被改）
     _issue_author_email: str | None = None
@@ -200,7 +200,7 @@ def admin_delete_feedback(
     issue_id: int,
     http_request: Request,
     db: Session = Depends(get_db),
-    admin: UserModel = Depends(require_admin),
+    admin: UserModel = Depends(require_perm("gallery:approve")),
 ) -> None:
     if not _service.delete_issue(issue_id):
         raise _not_found()

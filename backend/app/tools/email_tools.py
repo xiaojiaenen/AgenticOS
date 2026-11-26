@@ -1,5 +1,6 @@
 """邮件工具 - 提供邮件读取、搜索、发送功能"""
 
+import asyncio
 import contextvars
 import datetime
 import imaplib
@@ -112,6 +113,17 @@ async def send_notification_email(
     Returns:
         True if sent successfully, False otherwise
     """
+    return await asyncio.to_thread(_send_notification_email_impl, creds, to, subject, body, is_html, inline_image)
+
+
+def _send_notification_email_impl(
+    creds: dict[str, object],
+    to: str,
+    subject: str,
+    body: str,
+    is_html: bool = False,
+    inline_image: tuple[str, bytes, str] | None = None,
+) -> bool:
     email_addr = str(creds["email"])
     password = str(creds["password"])
     smtp_host = str(creds["smtp_host"])
@@ -435,6 +447,439 @@ def _auto_button_label(url: str | None) -> str:
     return "查看详情"
 
 
+def _list_email_folders_impl() -> str:
+    creds = _get_credentials()
+    if not creds:
+        return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
+
+    try:
+        imap = _imap_connect(
+            str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+        )
+        imap.login(str(creds["email"]), str(creds["password"]))
+
+        # 列出所有文件夹
+        status, folder_list = imap.list()
+
+        if status != "OK":
+            imap.logout()
+            return "❌ 获取文件夹列表失败"
+
+        # modified UTF-7 解码：中文自定义目录正常显示（Coremail 等）
+        mailboxes = _list_mailboxes(imap)
+        imap.logout()
+        folders = [display for _, display in mailboxes]
+
+        if not folders:
+            return "📭 未找到任何文件夹"
+
+        # 显示文件夹列表
+        result = "📁 邮箱文件夹列表：\n\n"
+        for folder in folders:
+            result += f"• {folder}\n"
+
+        result += f"\n共 {len(folders)} 个文件夹"
+        result += "\n\n💡 使用 read_emails(folder=\"文件夹名\") 读取指定文件夹的邮件"
+
+        return result
+
+    except Exception as e:
+        return f"❌ 获取文件夹列表失败: {str(e)}"
+
+
+def _read_emails_impl(
+    folder: str = "inbox",
+    limit: int = 10,
+    offset: int = 0,
+    unread_only: bool = False,
+    since: str = "",
+    before: str = "",
+) -> str:
+    creds = _get_credentials()
+    if not creds:
+        return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
+
+    try:
+        imap = _imap_connect(
+            str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+        )
+        imap.login(str(creds["email"]), str(creds["password"]))
+
+        imap.select(_resolve_imap_folder(imap, folder))
+
+        # Detect server timezone offset for precise date conversion
+        server_offset = _detect_server_utc_offset(
+            imap, str(creds["imap_host"]), int(creds["imap_port"])
+        )
+
+        # Build IMAP search criteria with timezone-aware date conversion
+        criteria_parts = []
+        if unread_only:
+            criteria_parts.append("UNSEEN")
+        if since:
+            server_since = _user_date_to_server_date(since, server_offset)
+            if server_since:
+                criteria_parts.append(f'SINCE "{server_since}"')
+        if before:
+            # BEFORE is strict less-than, so query the day after user's target
+            import datetime as _dt
+            _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
+            server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
+            if server_before:
+                criteria_parts.append(f'BEFORE "{server_before}"')
+
+        if criteria_parts:
+            criteria = "(" + " ".join(criteria_parts) + ")"
+        else:
+            criteria = "ALL"
+
+        status, message_ids = imap.search(None, criteria)
+
+        if status != "OK" or not message_ids or not message_ids[0]:
+            imap.logout()
+            return f"📭 {_folder_display_name(folder)} 没有找到匹配的邮件"
+
+        all_ids = message_ids[0].split()
+        total_count = len(all_ids)
+
+        # Apply offset and limit
+        paged_ids = all_ids[offset:offset + limit] if offset > 0 else all_ids[-limit:]
+
+        if not paged_ids:
+            imap.logout()
+            return f"📭 offset={offset} 超出范围，共 {total_count} 封邮件"
+
+        emails = []
+        for msg_id in paged_ids:
+            msg = _safe_fetch_message(imap, msg_id)
+            if msg is None:
+                continue
+
+            subject = _decode_mime_header(msg["Subject"])
+            from_addr = parseaddr(msg["From"])[1]
+            date_str = msg["Date"]
+            # Determine read status from flags (approximate)
+            is_read = True  # default
+            try:
+                mid = msg_id if isinstance(msg_id, bytes) else msg_id.encode()
+                s, d = imap.fetch(mid, "(FLAGS)")
+                if s == "OK" and d and d[0]:
+                    flags_str = d[0].decode() if isinstance(d[0], bytes) else str(d[0])
+                    is_read = "\\Seen" in flags_str
+            except Exception:
+                logger.debug("Failed to determine read status for message", exc_info=True)
+
+            emails.append({
+                "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
+                "subject": subject[:50] + ("..." if len(subject) > 50 else ""),
+                "from": from_addr,
+                "date": date_str,
+                "is_read": is_read,
+            })
+
+        imap.logout()
+
+        # Client-side date filtering (UTC-based, immune to server timezone)
+        if since or before:
+            emails = [m for m in emails if _is_date_in_range(m.get("date", ""), since, before)]
+
+        range_info = f"第 {offset + 1}-{offset + len(emails)} 封" if offset > 0 else f"最新 {len(emails)} 封"
+        result = f"📬 {_folder_display_name(folder)} 共 {total_count} 封邮件（{range_info}）\n\n"
+        for i, mail in enumerate(emails, offset + 1 if offset > 0 else 1):
+            status_icon = "●" if not mail["is_read"] else "○"
+            result += f"{status_icon} {i}. {mail['subject']}\n"
+            result += f"   发件人: {mail['from']}\n"
+            result += f"   时间: {mail['date']}\n"
+            result += f"   ID: {mail['id']}\n\n"
+
+        return result
+
+    except Exception as e:
+        return f"❌ 读取邮件失败: {str(e)}"
+
+
+def _count_emails_impl(
+    folder: str = "inbox",
+    unread_only: bool = False,
+    since: str = "",
+    before: str = "",
+) -> str:
+    creds = _get_credentials()
+    if not creds:
+        return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
+
+    try:
+        imap = _imap_connect(
+            str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+        )
+        imap.login(str(creds["email"]), str(creds["password"]))
+
+        imap.select(_resolve_imap_folder(imap, folder))
+
+        # Detect server timezone offset for precise date conversion
+        server_offset = _detect_server_utc_offset(
+            imap, str(creds["imap_host"]), int(creds["imap_port"])
+        )
+
+        # Build criteria with timezone-aware date conversion
+        criteria_parts = []
+        if unread_only:
+            criteria_parts.append("UNSEEN")
+        if since:
+            server_since = _user_date_to_server_date(since, server_offset)
+            if server_since:
+                criteria_parts.append(f'SINCE "{server_since}"')
+        if before:
+            # BEFORE is strict less-than, so query the day after user's target
+            import datetime as _dt
+            _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
+            server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
+            if server_before:
+                criteria_parts.append(f'BEFORE "{server_before}"')
+
+        if criteria_parts:
+            criteria = "(" + " ".join(criteria_parts) + ")"
+        else:
+            criteria = "ALL"
+
+        status, message_ids = imap.search(None, criteria)
+        imap.logout()
+
+        if status != "OK" or not message_ids or not message_ids[0]:
+            total = 0
+        else:
+            total = len(message_ids[0].split())
+
+        # Also get total and unread counts for inbox
+        result = f"📊 {_folder_display_name(folder)} 统计\n"
+        result += f"   当前筛选: {criteria}\n"
+        result += f"   邮件数量: {total} 封\n"
+
+        return result
+
+    except Exception as e:
+        return f"❌ 统计邮件失败: {str(e)}"
+
+
+def _search_emails_impl(
+    query: str,
+    since: str = "",
+    before: str = "",
+    from_address: str = "",
+) -> str:
+    creds = _get_credentials()
+    if not creds:
+        return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
+
+    try:
+        imap = _imap_connect(
+            str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+        )
+        imap.login(str(creds["email"]), str(creds["password"]))
+        imap.select("INBOX")
+
+        # Detect server timezone offset for precise date conversion
+        server_offset = _detect_server_utc_offset(
+            imap, str(creds["imap_host"]), int(creds["imap_port"])
+        )
+
+        # Build IMAP search criteria with timezone-aware date conversion
+        criteria_parts = []
+        if since:
+            server_since = _user_date_to_server_date(since, server_offset)
+            if server_since:
+                criteria_parts.append(f'SINCE "{server_since}"')
+        if before:
+            # BEFORE is strict less-than, so query the day after user's target
+            import datetime as _dt
+            _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
+            server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
+            if server_before:
+                criteria_parts.append(f'BEFORE "{server_before}"')
+        if from_address:
+            criteria_parts.append(f'FROM "{from_address}"')
+
+        if criteria_parts:
+            criteria = "(" + " ".join(criteria_parts) + ")"
+        else:
+            criteria = "ALL"
+
+        status, message_ids = imap.search(None, criteria)
+
+        if status != "OK" or not message_ids or not message_ids[0]:
+            imap.logout()
+            return f"📭 没有找到包含 '{query}' 的邮件"
+
+        results = []
+        query_lower = query.lower()
+
+        for msg_id in reversed(message_ids[0].split()[-100:]):
+            msg = _safe_fetch_message(imap, msg_id)
+            if msg is None:
+                continue
+
+            subject = _decode_mime_header(msg["Subject"])
+            from_addr = parseaddr(msg["From"])[1]
+            date_str = msg["Date"]
+            body = _get_email_body(msg)[:1000]
+
+            # Apply UTC-based date filter (immune to server timezone)
+            if not _is_date_in_range(date_str, since, before):
+                continue
+
+            if query_lower in subject.lower() or query_lower in body.lower():
+                results.append({
+                    "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
+                    "subject": subject[:50],
+                    "from": from_addr,
+                    "date": date_str,
+                    "snippet": body[:100].replace("\n", " "),
+                })
+
+            if len(results) >= 10:
+                break
+
+        imap.logout()
+
+        if not results:
+            return f"📭 没有找到包含 '{query}' 的邮件"
+
+        result = f"🔍 搜索 '{query}' 找到 {len(results)} 封邮件\n\n"
+        for i, mail in enumerate(results, 1):
+            result += f"{i}. {mail['subject']}\n"
+            result += f"   发件人: {mail['from']}\n"
+            result += f"   时间: {mail['date']}\n"
+            result += f"   摘要: {mail['snippet']}...\n"
+            result += f"   ID: {mail['id']}\n\n"
+
+        return result
+
+    except Exception as e:
+        return f"❌ 搜索邮件失败: {str(e)}"
+
+
+def _get_email_impl(message_id: str) -> str:
+    creds = _get_credentials()
+    if not creds:
+        return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
+
+    try:
+        imap = _imap_connect(
+            str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+        )
+        imap.login(str(creds["email"]), str(creds["password"]))
+        imap.select("INBOX")
+
+        msg = _safe_fetch_message(imap, message_id)
+        if msg is None:
+            imap.logout()
+            return f"❌ 找不到邮件 {message_id}，可能已被删除或 ID 不正确"
+
+        subject = _decode_mime_header(msg["Subject"])
+        from_addr = parseaddr(msg["From"])[1]
+        to_addr = parseaddr(msg["To"])[1]
+        date_str = msg["Date"]
+        body = _get_email_body(msg)
+
+        attachments = []
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_disposition() == "attachment":
+                    filename = part.get_filename()
+                    if filename:
+                        attachments.append(_decode_mime_header(filename))
+
+        imap.logout()
+
+        result = "📧 邮件详情\n\n"
+        result += f"主题: {subject}\n"
+        result += f"发件人: {from_addr}\n"
+        result += f"收件人: {to_addr}\n"
+        result += f"时间: {date_str}\n"
+
+        if attachments:
+            result += f"附件: {', '.join(attachments)}\n"
+
+        result += f"\n{'='*50}\n\n"
+        result += body
+
+        return result
+
+    except Exception as e:
+        return f"❌ 读取邮件失败: {str(e)}"
+
+
+def _send_email_impl(
+    to: str,
+    subject: str,
+    body: str,
+    cc: str | None = None,
+    is_html: bool = False,
+    template: str | None = None,
+    button_label: str | None = None,
+    button_url: str | None = None,
+) -> str:
+    creds = _get_credentials()
+    if not creds:
+        return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
+
+    # 用系统模板渲染：body 按空行分段，套进统一的深底印刷视觉
+    if template:
+        fname = (template or "").strip().lower()
+        if fname not in ("notice", "通知"):
+            return (
+                f"❌ 未知模板：{template}。可用模板：notice（通用通知）。"
+                "不需要模板时请不要传 template。"
+            )
+        from app.services import email_templates
+
+        paragraphs = [p for p in (body or "").split("\n\n") if p.strip()]
+        if not paragraphs:
+            return "❌ 正文为空，无法套用模板。"
+        html_body = email_templates.build_general_message(
+            subject,
+            paragraphs,
+            eyebrow="通知",
+            button_label=(button_label or "").strip() or _auto_button_label(button_url),
+            button_url=(button_url or "").strip(),
+            signer="此邮件由 AgenticOS 邮箱助手发送",
+        )
+        body = html_body
+        is_html = True
+
+    email_addr = str(creds["email"])
+    password = str(creds["password"])
+    smtp_host = str(creds["smtp_host"])
+    smtp_port = int(creds["smtp_port"])
+    smtp_ssl = bool(creds["smtp_ssl"])
+
+    try:
+        subtype = "html" if is_html else "plain"
+        msg = MIMEText(body, subtype, "utf-8")
+        msg["From"] = email_addr
+        msg["To"] = to
+        msg["Subject"] = subject
+        if cc:
+            msg["Cc"] = cc
+
+        recipients = [addr.strip() for addr in to.split(",")]
+        if cc:
+            recipients.extend([addr.strip() for addr in cc.split(",")])
+
+        with _smtp_connect(smtp_host, smtp_port, smtp_ssl) as server:
+            server.login(email_addr, password)
+            server.send_message(msg, email_addr, recipients)
+
+        format_label = "HTML" if is_html else "纯文本"
+        result = f"✅ 邮件发送成功！（{format_label}）\n收件人: {to}\n主题: {subject}"
+        if cc:
+            result += f"\n抄送: {cc}"
+        return result
+
+    except Exception as e:
+        return f"❌ 发送邮件失败: {str(e)}"
+
+
 def register_email_tools(registry: ToolRegistry):
     """注册邮件工具到 ToolRegistry"""
 
@@ -444,43 +889,7 @@ def register_email_tools(registry: ToolRegistry):
         列出邮箱中所有可用的文件夹/目录。
         适用于 Coremail 等支持自建目录的内网邮箱系统。
         """
-        creds = _get_credentials()
-        if not creds:
-            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
-
-        try:
-            imap = _imap_connect(
-                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
-            )
-            imap.login(str(creds["email"]), str(creds["password"]))
-
-            # 列出所有文件夹
-            status, folder_list = imap.list()
-
-            if status != "OK":
-                imap.logout()
-                return "❌ 获取文件夹列表失败"
-
-            # modified UTF-7 解码：中文自定义目录正常显示（Coremail 等）
-            mailboxes = _list_mailboxes(imap)
-            imap.logout()
-            folders = [display for _, display in mailboxes]
-
-            if not folders:
-                return "📭 未找到任何文件夹"
-
-            # 显示文件夹列表
-            result = "📁 邮箱文件夹列表：\n\n"
-            for folder in folders:
-                result += f"• {folder}\n"
-
-            result += f"\n共 {len(folders)} 个文件夹"
-            result += "\n\n💡 使用 read_emails(folder=\"文件夹名\") 读取指定文件夹的邮件"
-
-            return result
-
-        except Exception as e:
-            return f"❌ 获取文件夹列表失败: {str(e)}"
+        return await asyncio.to_thread(_list_email_folders_impl)
 
     @registry.tool(display_name="读取邮件")
     async def read_emails(
@@ -502,107 +911,7 @@ def register_email_tools(registry: ToolRegistry):
             since: 起始日期，格式 YYYY-MM-DD，只返回该日期之后的邮件
             before: 结束日期，格式 YYYY-MM-DD，只返回该日期之前的邮件
         """
-        creds = _get_credentials()
-        if not creds:
-            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
-
-        try:
-            imap = _imap_connect(
-                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
-            )
-            imap.login(str(creds["email"]), str(creds["password"]))
-
-            imap.select(_resolve_imap_folder(imap, folder))
-
-            # Detect server timezone offset for precise date conversion
-            server_offset = _detect_server_utc_offset(
-                imap, str(creds["imap_host"]), int(creds["imap_port"])
-            )
-
-            # Build IMAP search criteria with timezone-aware date conversion
-            criteria_parts = []
-            if unread_only:
-                criteria_parts.append("UNSEEN")
-            if since:
-                server_since = _user_date_to_server_date(since, server_offset)
-                if server_since:
-                    criteria_parts.append(f'SINCE "{server_since}"')
-            if before:
-                # BEFORE is strict less-than, so query the day after user's target
-                import datetime as _dt
-                _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
-                server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
-                if server_before:
-                    criteria_parts.append(f'BEFORE "{server_before}"')
-
-            if criteria_parts:
-                criteria = "(" + " ".join(criteria_parts) + ")"
-            else:
-                criteria = "ALL"
-
-            status, message_ids = imap.search(None, criteria)
-
-            if status != "OK" or not message_ids or not message_ids[0]:
-                imap.logout()
-                return f"📭 {_folder_display_name(folder)} 没有找到匹配的邮件"
-
-            all_ids = message_ids[0].split()
-            total_count = len(all_ids)
-
-            # Apply offset and limit
-            paged_ids = all_ids[offset:offset + limit] if offset > 0 else all_ids[-limit:]
-
-            if not paged_ids:
-                imap.logout()
-                return f"📭 offset={offset} 超出范围，共 {total_count} 封邮件"
-
-            emails = []
-            for msg_id in paged_ids:
-                msg = _safe_fetch_message(imap, msg_id)
-                if msg is None:
-                    continue
-
-                subject = _decode_mime_header(msg["Subject"])
-                from_addr = parseaddr(msg["From"])[1]
-                date_str = msg["Date"]
-                # Determine read status from flags (approximate)
-                is_read = True  # default
-                try:
-                    mid = msg_id if isinstance(msg_id, bytes) else msg_id.encode()
-                    s, d = imap.fetch(mid, "(FLAGS)")
-                    if s == "OK" and d and d[0]:
-                        flags_str = d[0].decode() if isinstance(d[0], bytes) else str(d[0])
-                        is_read = "\\Seen" in flags_str
-                except Exception:
-                    logger.debug("Failed to determine read status for message", exc_info=True)
-
-                emails.append({
-                    "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
-                    "subject": subject[:50] + ("..." if len(subject) > 50 else ""),
-                    "from": from_addr,
-                    "date": date_str,
-                    "is_read": is_read,
-                })
-
-            imap.logout()
-
-            # Client-side date filtering (UTC-based, immune to server timezone)
-            if since or before:
-                emails = [m for m in emails if _is_date_in_range(m.get("date", ""), since, before)]
-
-            range_info = f"第 {offset + 1}-{offset + len(emails)} 封" if offset > 0 else f"最新 {len(emails)} 封"
-            result = f"📬 {_folder_display_name(folder)} 共 {total_count} 封邮件（{range_info}）\n\n"
-            for i, mail in enumerate(emails, offset + 1 if offset > 0 else 1):
-                status_icon = "●" if not mail["is_read"] else "○"
-                result += f"{status_icon} {i}. {mail['subject']}\n"
-                result += f"   发件人: {mail['from']}\n"
-                result += f"   时间: {mail['date']}\n"
-                result += f"   ID: {mail['id']}\n\n"
-
-            return result
-
-        except Exception as e:
-            return f"❌ 读取邮件失败: {str(e)}"
+        return await asyncio.to_thread(_read_emails_impl, folder, limit, offset, unread_only, since, before)
 
     @registry.tool(display_name="统计邮件数")
     async def count_emails(
@@ -620,61 +929,7 @@ def register_email_tools(registry: ToolRegistry):
             since: 起始日期，格式 YYYY-MM-DD
             before: 结束日期，格式 YYYY-MM-DD
         """
-        creds = _get_credentials()
-        if not creds:
-            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
-
-        try:
-            imap = _imap_connect(
-                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
-            )
-            imap.login(str(creds["email"]), str(creds["password"]))
-
-            imap.select(_resolve_imap_folder(imap, folder))
-
-            # Detect server timezone offset for precise date conversion
-            server_offset = _detect_server_utc_offset(
-                imap, str(creds["imap_host"]), int(creds["imap_port"])
-            )
-
-            # Build criteria with timezone-aware date conversion
-            criteria_parts = []
-            if unread_only:
-                criteria_parts.append("UNSEEN")
-            if since:
-                server_since = _user_date_to_server_date(since, server_offset)
-                if server_since:
-                    criteria_parts.append(f'SINCE "{server_since}"')
-            if before:
-                # BEFORE is strict less-than, so query the day after user's target
-                import datetime as _dt
-                _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
-                server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
-                if server_before:
-                    criteria_parts.append(f'BEFORE "{server_before}"')
-
-            if criteria_parts:
-                criteria = "(" + " ".join(criteria_parts) + ")"
-            else:
-                criteria = "ALL"
-
-            status, message_ids = imap.search(None, criteria)
-            imap.logout()
-
-            if status != "OK" or not message_ids or not message_ids[0]:
-                total = 0
-            else:
-                total = len(message_ids[0].split())
-
-            # Also get total and unread counts for inbox
-            result = f"📊 {_folder_display_name(folder)} 统计\n"
-            result += f"   当前筛选: {criteria}\n"
-            result += f"   邮件数量: {total} 封\n"
-
-            return result
-
-        except Exception as e:
-            return f"❌ 统计邮件失败: {str(e)}"
+        return await asyncio.to_thread(_count_emails_impl, folder, unread_only, since, before)
 
     @registry.tool(display_name="搜索邮件")
     async def search_emails(
@@ -692,95 +947,7 @@ def register_email_tools(registry: ToolRegistry):
             before: 结束日期，格式 YYYY-MM-DD
             from_address: 发件人地址筛选
         """
-        creds = _get_credentials()
-        if not creds:
-            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
-
-        try:
-            imap = _imap_connect(
-                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
-            )
-            imap.login(str(creds["email"]), str(creds["password"]))
-            imap.select("INBOX")
-
-            # Detect server timezone offset for precise date conversion
-            server_offset = _detect_server_utc_offset(
-                imap, str(creds["imap_host"]), int(creds["imap_port"])
-            )
-
-            # Build IMAP search criteria with timezone-aware date conversion
-            criteria_parts = []
-            if since:
-                server_since = _user_date_to_server_date(since, server_offset)
-                if server_since:
-                    criteria_parts.append(f'SINCE "{server_since}"')
-            if before:
-                # BEFORE is strict less-than, so query the day after user's target
-                import datetime as _dt
-                _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
-                server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
-                if server_before:
-                    criteria_parts.append(f'BEFORE "{server_before}"')
-            if from_address:
-                criteria_parts.append(f'FROM "{from_address}"')
-
-            if criteria_parts:
-                criteria = "(" + " ".join(criteria_parts) + ")"
-            else:
-                criteria = "ALL"
-
-            status, message_ids = imap.search(None, criteria)
-
-            if status != "OK" or not message_ids or not message_ids[0]:
-                imap.logout()
-                return f"📭 没有找到包含 '{query}' 的邮件"
-
-            results = []
-            query_lower = query.lower()
-
-            for msg_id in reversed(message_ids[0].split()[-100:]):
-                msg = _safe_fetch_message(imap, msg_id)
-                if msg is None:
-                    continue
-
-                subject = _decode_mime_header(msg["Subject"])
-                from_addr = parseaddr(msg["From"])[1]
-                date_str = msg["Date"]
-                body = _get_email_body(msg)[:1000]
-
-                # Apply UTC-based date filter (immune to server timezone)
-                if not _is_date_in_range(date_str, since, before):
-                    continue
-
-                if query_lower in subject.lower() or query_lower in body.lower():
-                    results.append({
-                        "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
-                        "subject": subject[:50],
-                        "from": from_addr,
-                        "date": date_str,
-                        "snippet": body[:100].replace("\n", " "),
-                    })
-
-                if len(results) >= 10:
-                    break
-
-            imap.logout()
-
-            if not results:
-                return f"📭 没有找到包含 '{query}' 的邮件"
-
-            result = f"🔍 搜索 '{query}' 找到 {len(results)} 封邮件\n\n"
-            for i, mail in enumerate(results, 1):
-                result += f"{i}. {mail['subject']}\n"
-                result += f"   发件人: {mail['from']}\n"
-                result += f"   时间: {mail['date']}\n"
-                result += f"   摘要: {mail['snippet']}...\n"
-                result += f"   ID: {mail['id']}\n\n"
-
-            return result
-
-        except Exception as e:
-            return f"❌ 搜索邮件失败: {str(e)}"
+        return await asyncio.to_thread(_search_emails_impl, query, since, before, from_address)
 
     @registry.tool(display_name="查看邮件")
     async def get_email(message_id: str) -> str:
@@ -790,54 +957,7 @@ def register_email_tools(registry: ToolRegistry):
         Args:
             message_id: 邮件ID（从 read_emails 或 search_emails 返回）
         """
-        creds = _get_credentials()
-        if not creds:
-            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
-
-        try:
-            imap = _imap_connect(
-                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
-            )
-            imap.login(str(creds["email"]), str(creds["password"]))
-            imap.select("INBOX")
-
-            msg = _safe_fetch_message(imap, message_id)
-            if msg is None:
-                imap.logout()
-                return f"❌ 找不到邮件 {message_id}，可能已被删除或 ID 不正确"
-
-            subject = _decode_mime_header(msg["Subject"])
-            from_addr = parseaddr(msg["From"])[1]
-            to_addr = parseaddr(msg["To"])[1]
-            date_str = msg["Date"]
-            body = _get_email_body(msg)
-
-            attachments = []
-            if msg.is_multipart():
-                for part in msg.walk():
-                    if part.get_content_disposition() == "attachment":
-                        filename = part.get_filename()
-                        if filename:
-                            attachments.append(_decode_mime_header(filename))
-
-            imap.logout()
-
-            result = "📧 邮件详情\n\n"
-            result += f"主题: {subject}\n"
-            result += f"发件人: {from_addr}\n"
-            result += f"收件人: {to_addr}\n"
-            result += f"时间: {date_str}\n"
-
-            if attachments:
-                result += f"附件: {', '.join(attachments)}\n"
-
-            result += f"\n{'='*50}\n\n"
-            result += body
-
-            return result
-
-        except Exception as e:
-            return f"❌ 读取邮件失败: {str(e)}"
+        return await asyncio.to_thread(_get_email_impl, message_id)
 
     @registry.tool(display_name="发送邮件", requires_approval=True)
     async def send_email(
@@ -866,66 +986,7 @@ def register_email_tools(registry: ToolRegistry):
             button_label: 模板里的行动按钮文字（可选，需同时给 button_url）
             button_url: 模板里的行动按钮链接（可选，需同时给 button_label）
         """
-        creds = _get_credentials()
-        if not creds:
-            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
-
-        # 用系统模板渲染：body 按空行分段，套进统一的深底印刷视觉
-        if template:
-            fname = (template or "").strip().lower()
-            if fname not in ("notice", "通知"):
-                return (
-                    f"❌ 未知模板：{template}。可用模板：notice（通用通知）。"
-                    "不需要模板时请不要传 template。"
-                )
-            from app.services import email_templates
-
-            paragraphs = [p for p in (body or "").split("\n\n") if p.strip()]
-            if not paragraphs:
-                return "❌ 正文为空，无法套用模板。"
-            html_body = email_templates.build_general_message(
-                subject,
-                paragraphs,
-                eyebrow="通知",
-                button_label=(button_label or "").strip() or _auto_button_label(button_url),
-                button_url=(button_url or "").strip(),
-                signer="此邮件由 AgenticOS 邮箱助手发送",
-            )
-            body = html_body
-            is_html = True
-
-        email_addr = str(creds["email"])
-        password = str(creds["password"])
-        smtp_host = str(creds["smtp_host"])
-        smtp_port = int(creds["smtp_port"])
-        smtp_ssl = bool(creds["smtp_ssl"])
-
-        try:
-            subtype = "html" if is_html else "plain"
-            msg = MIMEText(body, subtype, "utf-8")
-            msg["From"] = email_addr
-            msg["To"] = to
-            msg["Subject"] = subject
-            if cc:
-                msg["Cc"] = cc
-
-            recipients = [addr.strip() for addr in to.split(",")]
-            if cc:
-                recipients.extend([addr.strip() for addr in cc.split(",")])
-
-            with _smtp_connect(smtp_host, smtp_port, smtp_ssl) as server:
-                server.login(email_addr, password)
-                server.send_message(msg, email_addr, recipients)
-
-            format_label = "HTML" if is_html else "纯文本"
-            result = f"✅ 邮件发送成功！（{format_label}）\n收件人: {to}\n主题: {subject}"
-            if cc:
-                result += f"\n抄送: {cc}"
-            return result
-
-        except Exception as e:
-            return f"❌ 发送邮件失败: {str(e)}"
-
+        return await asyncio.to_thread(_send_email_impl, to, subject, body, cc, is_html, template, button_label, button_url)
 
     # ------------------------------------------------------------------
     # 通讯录查询（LDAP）：把"发给张三"换成真实邮箱

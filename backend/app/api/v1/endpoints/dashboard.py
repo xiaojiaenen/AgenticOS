@@ -12,7 +12,7 @@ from sqlalchemy import delete, exists, func, or_, select, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_perm
 from app.core.config import get_settings
 from app.core.timezone import APP_TIMEZONE, app_today, to_app_timezone
 from app.db.models import AgentMessageModel, AgentProfileModel, AgentSessionModel, AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
@@ -52,7 +52,7 @@ def _cached_dashboard(
 ):
     """M6-A4：dashboard 统计结果 30s 缓存。
 
-    key 里带 user_id（这两个端点都是 require_admin，但保留用户维度隔离，
+    key 里带 user_id（这两个端点按 conversation:view_own 权限点放行，但保留用户维度隔离，
     未来放开到普通用户时不必改 key 结构）+ 参数哈希，避免不同 days 参数串数据。
     Redis 不可用时 get_or_set_json_sync 自动旁路直查，不影响正确性。
 
@@ -86,7 +86,7 @@ def _cached_dashboard(
 @router.get("/stats", response_model=DashboardStatsResponse)
 def get_dashboard_stats(
     days: int = Query(14, ge=1, le=90),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("audit:stats")),
     db: Session = Depends(get_db),
 ) -> DashboardStatsResponse:
     return _cached_dashboard(
@@ -415,7 +415,7 @@ def list_conversations(
     search: str = Query(default="", max_length=120),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("conversation:view_own")),
     db: Session = Depends(get_db),
 ) -> ConversationListResponse:
     """后台聊天记录列表 —— **只含当前登录者自己的会话**。
@@ -597,7 +597,7 @@ def get_conversation_detail(
     session_id: str,
     messages_offset: int = Query(default=0, ge=0),
     messages_limit: int = Query(default=20, ge=1, le=100),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("conversation:view_own")),
     db: Session = Depends(get_db),
 ) -> ConversationDetailResponse:
     session = db.get(AgentSessionModel, session_id)
@@ -688,7 +688,7 @@ def get_conversation_detail(
 @router.get("/analytics")
 def get_analytics(
     days: int = Query(14, ge=1, le=90),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("audit:stats")),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     """Return analytics data for chat history visualizations.
@@ -777,7 +777,7 @@ def _compute_analytics(*, days: int, db: Session) -> dict[str, Any]:
 @router.delete("/conversations/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conversation(
     session_id: str,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("conversation:delete_own")),
     db: Session = Depends(get_db),
 ) -> None:
     session = db.get(AgentSessionModel, session_id)
@@ -952,7 +952,7 @@ def _compute_my_usage(*, days: int, user_id: int, db: Session) -> dict[str, Any]
 @router.get("/usage-routes")
 def get_usage_routes(
     days: int = Query(14, ge=1, le=90),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("audit:usage_routes")),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     """管理员排障视图：流量落在哪个提供商 / 哪条凭据 / 哪个模型上。

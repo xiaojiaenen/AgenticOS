@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_perm
 from app.db.models import UserModel
 from app.schemas.agent_profiles import (
     AgentProfileCreateRequest,
@@ -19,7 +19,7 @@ router = APIRouter(tags=["Agent Profiles"])
 
 
 @router.get("/agent-profiles", response_model=AgentProfileListResponse)
-def list_agent_profiles(_: UserModel = Depends(require_admin)) -> dict[str, object]:
+def list_agent_profiles(_: UserModel = Depends(require_perm("agent:edit"))) -> dict[str, object]:
     return AgentProfileService().list_admin()
 
 
@@ -27,7 +27,7 @@ def list_agent_profiles(_: UserModel = Depends(require_admin)) -> dict[str, obje
 def create_agent_profile(
     payload: AgentProfileCreateRequest,
     http_request: Request,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_perm("agent:create")),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     """创建智能体。普通用户创建的自建智能体归本人所有；管理员可发布到商店。"""
@@ -106,7 +106,7 @@ def restore_agent_profile_defaults(
 def delete_agent_profile(
     profile_id: int,
     http_request: Request,
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_perm("agent:delete")),
     db: Session = Depends(get_db),
 ) -> None:
     try:

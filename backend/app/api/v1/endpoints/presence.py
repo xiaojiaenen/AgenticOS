@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import require_perm, get_current_user
 from app.db.models import UserModel
 from app.services.cache_service import get_cache_service
 
@@ -24,7 +24,7 @@ async def heartbeat(current_user: UserModel = Depends(get_current_user)) -> dict
 
 
 @router.get("/online")
-async def online_users(_: UserModel = Depends(require_admin)) -> dict:
+async def online_users(_: UserModel = Depends(require_perm("audit:stats"))) -> dict:
     cache = get_cache_service()
     ids = await cache.get_online_users()
     return {"user_ids": sorted(int(x) for x in ids), "count": len(ids)}

@@ -24,10 +24,10 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_perm
 from app.db.models import RoleModel, UserModel
 from app.schemas.base import AppBaseModel
 from app.services import audit_service
@@ -111,7 +111,7 @@ class AuditLogPage(BaseModel):
 
 
 @router.get("/roles", response_model=list[RoleResponse])
-def list_roles(db: Session = Depends(get_db), _: UserModel = Depends(require_admin)):
+def list_roles(db: Session = Depends(get_db), _: UserModel = Depends(require_perm("role:manage"))):
     return db.scalars(select(RoleModel).order_by(RoleModel.is_builtin.desc(), RoleModel.slug)).all()
 
 
@@ -120,7 +120,7 @@ def create_role(
     payload: RoleCreate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("role:manage")),
 ):
     if db.scalar(select(RoleModel).where(RoleModel.slug == payload.slug)) is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role slug already exists")
@@ -146,7 +146,7 @@ def delete_role(
     role_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("role:manage")),
 ):
     role = db.get(RoleModel, role_id)
     if role is None:
@@ -182,7 +182,7 @@ def delete_role(
 def list_policies(
     ptype: str = Query(default="p", pattern="^[pg]$"),
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("role:manage")),
 ):
     from app.services.permission_service import get_permission_service
 
@@ -208,7 +208,7 @@ def create_policy(
     payload: PolicyRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("role:manage")),
 ):
     from app.services.permission_service import get_permission_service
 
@@ -233,7 +233,7 @@ def delete_policy(
     payload: PolicyRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("role:manage")),
 ):
     from app.services.permission_service import get_permission_service
 
@@ -327,7 +327,7 @@ FEATURE_GRANTS: tuple[tuple[str, str, str], ...] = (
 @router.get("/permissions/catalog", response_model=PermissionCatalog)
 def get_permission_catalog(
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("role:manage")),
 ):
     """列出策略编辑器可选的授权项、动作、主体与实例资源。"""
     from app.db.models import KnowledgeBaseModel
@@ -414,7 +414,7 @@ def get_permission_catalog(
 def get_user_roles(
     user_id: int,
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("role:manage")),
 ):
     from app.services.permission_service import (
         get_permission_service,
@@ -453,7 +453,7 @@ def list_audit_logs(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("role:manage")),
 ):
     rows, total = audit_service.query_logs(
         db,
@@ -491,7 +491,7 @@ def purge_audit_logs_endpoint(
     request: Request,
     retention_days: int = Query(default=audit_service.RETENTION_DAYS, ge=1, le=3650),
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("role:manage")),
 ):
     deleted = audit_service.purge_older_than(db, retention_days)
     _audit(
@@ -499,3 +499,268 @@ def purge_audit_logs_endpoint(
         resource_type="audit_logs", detail={"retention_days": retention_days, "deleted": deleted},
     )
     return {"deleted": deleted, "retention_days": retention_days}
+
+
+# ---------------------------------------------------------------------------
+# 权限矩阵（细粒度权限点 + 角色配置 + 用户多角色）
+# ---------------------------------------------------------------------------
+
+
+class RolePermissionsUpdate(BaseModel):
+    permissions: list[str] = Field(default_factory=list, description="权限点 key 列表")
+
+
+class UserRolesUpdate(BaseModel):
+    roles: list[str] = Field(default_factory=list, description="额外角色 slug 列表（不含主角色）")
+
+
+def _assert_not_self(actor: UserModel, target_id: int, *, what: str) -> None:
+    """禁止管理员改自己的角色 / 权限点。
+
+    与 ``users.py`` 的「不能改自己的角色」同一口径：否则拿到 ``role:manage``
+    的人可以给自己加超管角色或给自己松绑权限点，绕过审计与权限边界。
+    """
+    if actor.id == target_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"不能修改自己的{what}",
+        )
+
+
+def _assert_permissions_within_actor(db: Session, actor: UserModel, permissions: frozenset[str]) -> None:
+    """目标权限点不得超出操作者自身的权限档位（``target_caps <= actor_caps``）。
+
+    权限点按 ``permission_catalog`` 的分组映射到 capability；目标点集合展开出的
+    capability 若是操作者当前不具备的（例如 admin 授出仅 superadmin 才有的
+    ``system:dangerous`` / ``conversation:read_any``），即为提权，拒绝。
+
+    操作者权限取**当前生效的权限点**（矩阵自定义后的结果，含多角色并集），
+    而不是只看主角色 —— 这样内置角色被矩阵收紧后不会反过来放大可授范围。
+    """
+    from app.core.permission_catalog import PERMISSION_POINTS
+    from app.services.permission_checker import capabilities_for_user
+
+    cap_by_point = {p.key: p.group for p in PERMISSION_POINTS}
+    target_caps = {cap_by_point[p] for p in permissions if p in cap_by_point}
+    actor_caps = set(capabilities_for_user(db, actor))
+    extra = target_caps - actor_caps
+    if extra:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"不能授予超出自己权限档位的权限（多出：{'、'.join(sorted(extra))}）",
+        )
+
+
+def _assert_roles_within_actor(db: Session, actor: UserModel, role_slugs: list[str]) -> None:
+    """目标角色（主/额外）的权限点不得超出操作者自身权限档位。
+
+    角色可能已被矩阵自定义，所以按角色的**当前生效权限点**判定，与
+    ``_assert_permissions_within_actor`` 共用同一套能力比对。
+    """
+    from app.services.permission_checker import role_permissions
+
+    for slug in role_slugs:
+        _assert_permissions_within_actor(db, actor, role_permissions(db, slug))
+
+
+@router.get("/permission-matrix/catalog")
+def get_permission_matrix_catalog(
+    db: Session = Depends(get_db),
+    _: UserModel = Depends(require_perm("role:manage")),
+):
+    """权限点目录（分组 + 权限点），矩阵 UI 的左侧结构。"""
+    from app.core.permission_catalog import catalog_payload
+
+    return catalog_payload()
+
+
+@router.get("/permission-matrix/roles")
+def get_permission_matrix_roles(
+    db: Session = Depends(get_db),
+    _: UserModel = Depends(require_perm("role:manage")),
+):
+    """所有角色及其权限点（矩阵数据）。
+
+    返回每项含 role 元信息 + permissions（当前生效的权限点）+ customized
+    （是否管理员自定义过）。内置角色未自定义时展示默认展开。
+    """
+    from app.core.permission_catalog import default_permissions_for_role
+    from app.core.roles import ROLE_META
+    from app.services.permission_checker import _permissions_from_json
+
+    result = []
+    for meta in ROLE_META:
+        slug = meta["value"]
+        role = db.scalar(select(RoleModel).where(RoleModel.slug == slug))
+        custom = _permissions_from_json(role.permissions_json) if role else None
+        perms = custom if custom is not None else default_permissions_for_role(slug)
+        result.append({
+            **meta,
+            "is_builtin": True,
+            "permissions": sorted(perms),
+            "customized": custom is not None,
+        })
+    # 自定义角色（RoleModel 里非内置）
+    for role in db.scalars(select(RoleModel).where(RoleModel.is_builtin.is_(False)).order_by(RoleModel.slug)).all():
+        custom = _permissions_from_json(role.permissions_json)
+        perms = custom if custom is not None else frozenset()
+        result.append({
+            "value": role.slug,
+            "label": role.name,
+            "hint": role.description or "自定义角色",
+            "is_builtin": False,
+            "permissions": sorted(perms),
+            "customized": custom is not None,
+        })
+    return {"roles": result}
+
+
+@router.put("/permission-matrix/roles/{slug}")
+def update_role_permissions(
+    slug: str,
+    payload: RolePermissionsUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_perm("role:manage")),
+):
+    """更新一个角色的权限点（矩阵打勾）。权限点 key 自动过滤非法值。"""
+    from app.core.permission_catalog import normalize_permissions
+    from app.core.roles import normalize_role
+    from app.services.permission_checker import clear_role_permission_cache
+
+    slug = normalize_role(slug)
+    role = db.scalar(select(RoleModel).where(RoleModel.slug == slug))
+    if role is None:
+        # 内置角色若还没有 RoleModel 行，为它建一条（幂等）
+        from app.core.roles import ROLE_META
+
+        meta = next((m for m in ROLE_META if m["value"] == slug), None)
+        if meta is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="角色不存在")
+        role = RoleModel(
+            name=meta["label"], slug=slug, description=meta["hint"],
+            is_builtin=True, is_active=True,
+        )
+        db.add(role)
+        db.flush()
+
+    perms = normalize_permissions(payload.permissions)
+    # 越权保护：不能把一个角色配出操作者自己都不具备的权限档位。
+    # 例：admin 没有 system:dangerous / conversation:read_any，就不能给任何
+    # 角色勾上这两个分组下的权限点（否则可借角色把自己或他人提成超管）。
+    _assert_permissions_within_actor(db, current_user, perms)
+    role.permissions_json = json.dumps(sorted(perms))
+    db.commit()
+    clear_role_permission_cache()
+    _audit(
+        db, request, action="permission.role_permissions.update", actor=current_user,
+        resource_type="role", resource_id=slug, detail={"permissions": sorted(perms)},
+    )
+    return {"role": slug, "permissions": sorted(perms)}
+
+
+@router.post("/permission-matrix/roles/{slug}/reset")
+def reset_role_permissions(
+    slug: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_perm("role:manage")),
+):
+    """恢复角色的默认权限（清空自定义矩阵，回到内置角色展开）。"""
+    from app.core.roles import normalize_role
+    from app.core.permission_catalog import default_permissions_for_role
+    from app.services.permission_checker import clear_role_permission_cache
+
+    slug = normalize_role(slug)
+    perms = default_permissions_for_role(slug)
+    # 与「设置权限点」同口径：恢复默认也不得把角色拉到操作者不具备的档位
+    # （例如 admin 把 superadmin 角色重置回含高危点的默认展开）。
+    _assert_permissions_within_actor(db, current_user, perms)
+    role = db.scalar(select(RoleModel).where(RoleModel.slug == slug))
+    if role is not None:
+        role.permissions_json = None  # null = 用默认展开
+        db.commit()
+    clear_role_permission_cache()
+    _audit(
+        db, request, action="permission.role_permissions.reset", actor=current_user,
+        resource_type="role", resource_id=slug,
+    )
+    return {"role": slug, "permissions": sorted(perms)}
+
+
+@router.get("/permission-matrix/users/{user_id}/roles")
+def get_matrix_user_roles(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: UserModel = Depends(require_perm("role:manage")),
+):
+    """用户的角色（主角色 + 额外角色）与生效权限点。"""
+    from app.services.permission_checker import permissions_for_user, user_role_slugs
+
+    user = db.get(UserModel, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+    return {
+        "user_id": user_id,
+        "primary_role": user.role,
+        "roles": user_role_slugs(db, user),
+        "permissions": sorted(permissions_for_user(db, user)),
+    }
+
+
+@router.put("/permission-matrix/users/{user_id}/roles")
+def set_matrix_user_roles(
+    user_id: int,
+    payload: UserRolesUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_perm("role:manage")),
+):
+    """设置用户的额外角色（主角色不变）。role slug 白名单校验。"""
+    from app.core.roles import VALID_ROLES, normalize_role
+    from app.db.models import UserRoleModel
+
+    user = db.get(UserModel, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+    # 不能改自己的角色（与 users.py:update_user 同一硬约束）：否则可给自己
+    # 加一个超管额外角色完成自升权，绕开 users.py 的档位校验与审计。
+    _assert_not_self(current_user, user_id, what="角色")
+    slugs = []
+    for raw in payload.roles:
+        slug = normalize_role(raw)
+        if slug not in VALID_ROLES:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"非法角色：{raw}")
+        if slug not in slugs:
+            slugs.append(slug)
+    # 越权保护：不能给别人超出自己权限档位的角色/权限点。
+    # 目标角色可能已被矩阵自定义，所以按生效权限点判定而非只看角色名。
+    _assert_roles_within_actor(db, current_user, slugs)
+    # 整组替换额外角色
+    db.execute(delete(UserRoleModel).where(UserRoleModel.user_id == user_id))
+    for slug in slugs:
+        db.add(UserRoleModel(user_id=user_id, role_slug=slug))
+    db.commit()
+    _audit(
+        db, request, action="permission.user_roles.update", actor=current_user,
+        resource_type="user", resource_id=str(user_id), detail={"roles": slugs},
+    )
+    return {"user_id": user_id, "extra_roles": slugs}
+
+
+@router.get("/permission-matrix/me")
+def get_my_permissions(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """当前用户生效的权限点（前端初始化 /auth/me 后可再拉一次）。"""
+    from app.services.permission_checker import (
+        capabilities_for_user, can_enter_admin_by_permissions, permissions_for_user,
+    )
+
+    perms = permissions_for_user(db, current_user)
+    return {
+        "permissions": sorted(perms),
+        "capabilities": capabilities_for_user(db, current_user),
+        "can_enter_admin": can_enter_admin_by_permissions(db, current_user),
+    }

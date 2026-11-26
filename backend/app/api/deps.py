@@ -74,22 +74,26 @@ def get_current_user(
 
 
 def require_admin(user: UserModel = Depends(get_current_user)) -> UserModel:
-    """要求**完整平台管理**能力（admin / superadmin）。
+    """要求**完整平台管理**能力（`CAP_USER_MANAGE`：admin / superadmin）。
 
-    历史原因：124 处端点用它做粗粒度把关。现在判的是能力而不是角色名 ——
-    新增角色时只改 `roles.py` 的能力表，这里和端点都不用动。
+    注：函数名是历史遗留，判的是能力而非角色名（operator/auditor 过不了）。
+    若端点只需审计只读或内容管理，应改用 `require_capability(CAP_AUDIT_VIEW)`
+    或对应能力位，而不是误用本依赖。
 
     注意 operator（运营）/ auditor（审计员）**不是** admin：他们能进后台
     但只能用自己的专有端点（`require_capability`）。这样保持既有语义不漂移，
     同时新角色按需逐步放开具体能力。
     """
     if not roles.is_admin_like(user.role):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要完整平台管理权限（user:manage）",
+        )
     return user
 
 
 def require_capability(capability: str):
-    """按能力做鉴权（细粒度端点的首选）。
+    """按能力做鉴权（兼容旧端点；新代码优先用 require_permission）。
 
     比 `require_admin` 更精确：运营能管内容但进不了用户管理，
     审计员只能读统计 —— 这些差异都在 `roles.py` 一张表里。
@@ -100,6 +104,34 @@ def require_capability(capability: str):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"缺少权限：{capability}",
+            )
+        return user
+
+    return dependency
+
+
+def require_perm(permission: str):
+    """按**权限点**鉴权（新端点的首选，权限矩阵的唯一判定入口）。
+
+    注：名字不带 `_permission` 后缀，是因为本文件下方还有一个历史遗留的
+    ``require_permission(action, resource_type, resolver)``（Casbin 资源级，
+    已无调用方）。两者签名不同，故意用不同名字避免覆盖。
+
+    权限点在 ``app.core.permission_catalog`` 注册；判定走
+    ``permission_checker.has_permission``（角色自定义矩阵 > 内置默认，
+    支持用户多角色并集）。未知权限点一律拒绝（fail-closed）。
+    """
+
+    def dependency(
+        user: UserModel = Depends(get_current_user),
+        db=Depends(get_db),
+    ) -> UserModel:
+        from app.services.permission_checker import has_permission
+
+        if not has_permission(db, user, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"缺少权限：{permission}",
             )
         return user
 
@@ -253,6 +285,7 @@ def require_kb_access(
     user: UserModel,
     kb_id: int,
     action: str = "read",
+    permission_point: str | None = None,
 ):
     """知识库行级鉴权（M6-C）。
 
@@ -277,6 +310,16 @@ def require_kb_access(
     kb = db.get(KnowledgeBaseModel, kb_id)
     if kb is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+
+    # 权限矩阵全局点：持有对应权限点的用户可操作任意知识库（管理员语义）。
+    # 这是矩阵 UI 上 kb:edit/delete/upload/reindex/acl 开关真正生效的地方 ——
+    # 不直接 require_perm（会挡住普通用户管理自己的库），而是作为行级判定的
+    # 一条"全局放行"分支。
+    if permission_point:
+        from app.services.permission_checker import has_permission
+
+        if has_permission(db, user, permission_point):
+            return kb
 
     # 显式授权（kb_access_control 成员表 / Casbin 直接策略 / owner / 系统 admin）
     grants = load_grants(db, [kb.id]).get(kb.id, [])

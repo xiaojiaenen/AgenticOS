@@ -375,24 +375,33 @@ class NativeLLMGateway:
         raw_stream = await self.client.chat.completions.create(**request)
         saw_tool_calls = False
         # 跨 delta 聚合工具调用（index → 字段累积）
-        pending: dict[int, dict[str, str]] = {}
+        # arguments 用 list[str] 累积后 join，避免逐帧 str += 的 O(N²) 拷贝；
+        # tool_calls_delta 仍携带全量快照（wire 契约不变）。
+        pending: dict[int, dict[str, Any]] = {}
         usage_final: dict[str, int] | None = None
+        # usage 只能下发一次：下游 AIMessageChunk 合并会把所有帧的 usage 累加，
+        # 若 usage_final 一旦赋值就永久为真并进 while 判断，后续每个空 delta 帧
+        # 都会重复 emit usage，直接造成重复计费。
+        usage_emitted = False
 
         async for chunk in raw_stream:
             choices = list(getattr(chunk, "choices", None) or [])
             usage = getattr(chunk, "usage", None)
-            if usage is not None:
-                usage_final = _parse_usage(usage)
+            # 只认「本帧新收到」的 usage；同一 provider 多次上报 usage 时取最后一份。
+            usage_this_frame = _parse_usage(usage) if usage is not None else {}
+            if usage_this_frame:
+                usage_final = usage_this_frame
 
             if not choices:
                 # usage-only 收尾帧：不能丢（原 wuwei 在这里把它跳过）
-                if usage_final is not None:
+                if usage_this_frame and not usage_emitted:
                     yield LLMResponseChunk(
                         content="",
                         finish_reason=None,
                         usage_available=True,
-                        usage=dict(usage_final),
+                        usage=dict(usage_final),  # type: ignore[arg-type]
                     )
+                    usage_emitted = True
                 continue
 
             choice = choices[0]
@@ -411,20 +420,21 @@ class NativeLLMGateway:
                     for item in raw_deltas:
                         index = int(getattr(item, "index", 0) or 0)
                         fn = getattr(item, "function", None)
-                        slot = pending.setdefault(index, {"id": "", "name": "", "arguments": ""})
+                        slot = pending.setdefault(index, {"id": "", "name": "", "arguments": []})
                         if getattr(item, "id", None):
                             slot["id"] = item.id
                         if fn is not None:
                             if getattr(fn, "name", None):
                                 slot["name"] = fn.name
                             if getattr(fn, "arguments", None):
-                                slot["arguments"] += fn.arguments
+                                slot["arguments"].append(fn.arguments)
                         tool_calls_delta.append(
                             {
                                 "index": index,
                                 "id": slot["id"] or None,
                                 "name": slot["name"] or None,
-                                "arguments": slot["arguments"],
+                                # wire 契约：全量累积快照（下游据此做增量换算）
+                                "arguments": "".join(slot["arguments"]),
                             }
                         )
 
@@ -448,7 +458,7 @@ class NativeLLMGateway:
                         ToolCall(
                             id=slot["id"] or f"call_{index}",
                             type="function",
-                            function=FunctionCall(name=slot["name"], arguments=_tool_arguments_to_dict(slot["arguments"])),
+                            function=FunctionCall(name=slot["name"], arguments=_tool_arguments_to_dict("".join(slot["arguments"]))),
                         )
                         for index, slot in sorted(pending.items())
                     ]
@@ -456,8 +466,17 @@ class NativeLLMGateway:
                 saw_tool_calls = False
                 pending = {}
 
-            if not (content or reasoning or tool_calls_delta or out_finish or usage_final):
+            # 本帧有实质内容/收尾就发；usage 若尚未下发过，则搭车发给下游
+            # （只在「首次拿到 usage」或 finish 帧时各发一次，避免空帧重复 emit）。
+            usage_for_frame: dict[str, int] | None = None
+            if usage_final is not None and not usage_emitted and (usage_this_frame or out_finish):
+                usage_for_frame = dict(usage_final)
+
+            if not (content or reasoning or tool_calls_delta or out_finish or usage_for_frame):
                 continue
+
+            if usage_for_frame is not None:
+                usage_emitted = True
 
             yield LLMResponseChunk(
                 content=content or "",
@@ -467,7 +486,7 @@ class NativeLLMGateway:
                 finish_reason=out_finish,
                 raw_finish_reason=raw_finish,
                 usage_available=usage_final is not None,
-                usage=dict(usage_final) if usage_final is not None else None,
+                usage=usage_for_frame,
             )
 
     async def _stream_with_retry(

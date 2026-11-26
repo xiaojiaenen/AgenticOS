@@ -27,7 +27,32 @@ async def _current_owner_id() -> int | None:
     if not session_id:
         return None
     storage = DatabaseAgentStorage()
-    return await storage.get_owner_id(session_id)
+    owner_id = await storage.get_owner_id(session_id)
+    if owner_id:
+        return owner_id
+
+    # 公开发布的智能体（/app/:slug）会话没有登录用户，owner_id 为空。
+    # 此时以发布者（profile.owner_id）作为受限检索身份，避免知识库工具
+    # 在公开聊天里直接报"无法获取当前会话"。
+    def _publisher_id() -> int | None:
+        import json as _json
+        from sqlalchemy import select as _select
+        from app.db.models import AgentProfileModel, AgentSessionModel
+        from app.db.session import SessionLocal
+
+        with SessionLocal() as db:
+            row = db.scalar(
+                _select(AgentSessionModel).where(AgentSessionModel.session_id == session_id)
+            )
+            if row is None:
+                return None
+            pid = (_json.loads(row.metadata_json or "{}") or {}).get("agent_profile_id")
+            if not pid:
+                return None
+            profile = db.get(AgentProfileModel, pid)
+            return getattr(profile, "owner_id", None) if profile else None
+
+    return await asyncio.to_thread(_publisher_id)
 
 
 def _load_owner_role(user_id: int) -> tuple[bool, str]:
@@ -81,6 +106,42 @@ def register_knowledge_tools(registry: ToolRegistry) -> None:
         # 角色查询是同步 DB IO，放线程里做
         is_admin, _role = await asyncio.to_thread(_load_owner_role, owner_id)
         knowledge_base_ids = [knowledge_base_id] if knowledge_base_id else None
+
+        # C1: 智能体绑定的知识库白名单 —— 从当前会话的 profile 读取，
+        # 与调用方指定的 kb_id 取交集；空白名单 = 不限制。
+        def _profile_kb_allowlist() -> list[int] | None:
+            from app.core.data_path import get_current_session_id
+            from app.db.models import AgentProfileModel, AgentSessionModel
+            from app.db.session import SessionLocal
+            import json as _json
+
+            sid = get_current_session_id()
+            if not sid:
+                return None
+            with SessionLocal() as db:
+                row = db.scalar(
+                    __import__("sqlalchemy").select(AgentSessionModel).where(
+                        AgentSessionModel.session_id == sid
+                    )
+                )
+                if row is None:
+                    return None
+                pid = (_json.loads(row.metadata_json or "{}") or {}).get("agent_profile_id")
+                if not pid:
+                    return None
+                profile = db.get(AgentProfileModel, pid)
+                if profile is None:
+                    return None
+                return [int(x) for x in _json.loads(profile.knowledge_base_ids_json or "[]")] or None
+
+        allowlist = await asyncio.to_thread(_profile_kb_allowlist)
+        if allowlist is not None:
+            knowledge_base_ids = (
+                [kb for kb in allowlist if kb in knowledge_base_ids]
+                if knowledge_base_ids else allowlist
+            )
+            if not knowledge_base_ids:
+                return {"results": [], "count": 0, "message": "当前智能体未绑定这些知识库"}
 
         def _run_search():
             """同步检索（BM25 + 可能的向量查询），整体放进线程避免阻塞事件循环。

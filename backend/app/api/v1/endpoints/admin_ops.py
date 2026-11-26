@@ -14,12 +14,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin, require_capability
+from app.api.deps import get_db, require_capability, require_perm
 from app.core.roles import CAP_DANGEROUS, CAP_USER_MANAGE
 from app.core.timezone import app_now
 from app.db.models import (
@@ -42,7 +42,7 @@ from app.services.quota_service import QUOTA_KEY, get_daily_quota_config  # noqa
 @router.get("/quota/overview", summary="配额概览：当前配置 + 今日按用户用量 Top + 超限用户")
 def quota_overview(
     top: int = 20,
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("settings:edit")),
 ) -> dict[str, Any]:
     """后台配额看板（8.5.2）：配置值 + 今日用量分布 + 超限名单（一键放行的数据源）。
 
@@ -114,7 +114,7 @@ def quota_overview(
 
 
 @router.get("/quota", summary="读取每日 Token 配额配置")
-def read_quota(_: UserModel = Depends(require_admin)) -> dict[str, Any]:
+def read_quota(_: UserModel = Depends(require_perm("settings:edit"))) -> dict[str, Any]:
     from app.db.session import SessionLocal
 
     with SessionLocal() as db:
@@ -128,7 +128,7 @@ class QuotaUpdateRequest(BaseModel):
 @router.put("/quota", summary="调整每日 Token 配额（0 = 关闭）")
 def update_quota(
     payload: QuotaUpdateRequest,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("settings:edit")),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     row = db.get(SystemSettingModel, QUOTA_KEY)
@@ -183,10 +183,14 @@ async def batch_users(
     succeeded: list[int] = []
     failed: list[dict[str, Any]] = []
     for user_id in payload.user_ids:
+        # 每行一个 savepoint：单条失败只回滚它自己，不把此前 succeeded 的
+        # 修改一并回滚（原实现 rollback() 会让返回值谎报成功但库里全没变）。
+        nested = db.begin_nested()
         try:
             user = db.get(UserModel, user_id)
             if user is None:
                 failed.append({"user_id": user_id, "reason": "用户不存在"})
+                nested.commit()
                 continue
             if payload.action == "enable":
                 user.is_active = True
@@ -195,14 +199,16 @@ async def batch_users(
             else:  # delete
                 if user.role == "superadmin":
                     failed.append({"user_id": user_id, "reason": "不能删除 superadmin"})
+                    nested.commit()
                     continue
                 user.is_active = False
                 user.email = f"deleted-{user.id}@deleted.local"
                 user.name = f"deleted-{user.id}"
                 db.flush()
+            nested.commit()
             succeeded.append(user_id)
         except Exception as exc:  # noqa: BLE001 —— 单条失败不拖垮整批
-            db.rollback()
+            nested.rollback()
             failed.append({"user_id": user_id, "reason": str(exc)[:120]})
     db.commit()
 
@@ -226,7 +232,7 @@ class ApiKeyBatchRequest(BaseModel):
 async def batch_api_keys(
     payload: ApiKeyBatchRequest,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("settings:edit")),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     from app.db.models import ApiKeyModel
@@ -261,11 +267,18 @@ async def batch_api_keys(
 # ── 统一审批中心（8.5.4）──────────────────────────────────────────────
 
 
-@router.get("/approvals/pending", summary="统一审批中心：三类待办聚合")
+@router.get("/approvals/pending", summary="统一审批中心：三类待办聚合（服务端分页）")
 async def unified_pending_approvals(
-    _: UserModel = Depends(require_admin),
+    limit: int = Query(8, ge=1, le=100, description="每类待办每页条数"),
+    offset: int = Query(0, ge=0),
+    _: UserModel = Depends(require_perm("settings:edit")),
 ) -> dict[str, Any]:
-    """聚合网站部署 / 作品发布 / 智能体工具审批的待办与计数。"""
+    """聚合网站部署 / 作品发布 / 智能体工具审批的待办与计数。
+
+    三类各自按 limit/offset 服务端分页；counts 始终为**全量**计数（不受
+    分页影响），pagination 给出每类的 total/pages/current，供前端统一
+    <Pagination> 组件使用。数据量大时不再一次性返回全部。
+    """
     from app.services.published_item_service import PublishedItemService
     from app.services.website_deploy_service import WebsiteDeployService
 
@@ -276,7 +289,7 @@ async def unified_pending_approvals(
 
     import asyncio
 
-    deploys, published = await asyncio.to_thread(_load_db)
+    all_deploys, all_published = await asyncio.to_thread(_load_db)
 
     def _load_tool_approvals() -> list[dict[str, Any]]:
         from app.db.session import SessionLocal
@@ -295,19 +308,38 @@ async def unified_pending_approvals(
                     "arguments": row.arguments_json,
                     "created_at": row.created_at,
                 }
-                for row in rows[:50]
+                for row in rows
             ]
 
-    tool_approvals = await asyncio.to_thread(_load_tool_approvals)
+    all_tools = await asyncio.to_thread(_load_tool_approvals)
 
+    # 全量计数（分页前）
     counts = {
-        "website_deploys": len(deploys),
-        "published_items": len(published),
-        "tool_approvals": len(tool_approvals),
-        "total": len(deploys) + len(published) + len(tool_approvals),
+        "website_deploys": len(all_deploys),
+        "published_items": len(all_published),
+        "tool_approvals": len(all_tools),
+        "total": len(all_deploys) + len(all_published) + len(all_tools),
+    }
+    # 服务端切片
+    end = offset + limit
+    deploys = all_deploys[offset:end]
+    published = all_published[offset:end]
+    tool_approvals = all_tools[offset:end]
+
+    import math
+
+    pagination = {
+        key: {
+            "total": counts[key],
+            "pages": max(1, math.ceil(counts[key] / limit)),
+            "current": min(offset // limit + 1, max(1, math.ceil(counts[key] / limit))),
+            "page_size": limit,
+        }
+        for key in ("website_deploys", "published_items", "tool_approvals")
     }
     return {
         "counts": counts,
+        "pagination": pagination,
         "website_deploys": deploys,
         "published_items": published,
         "tool_approvals": tool_approvals,

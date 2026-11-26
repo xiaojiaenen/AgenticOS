@@ -19,6 +19,10 @@ class UserPublic(BaseModel):
     #: 不再硬编码 `role === 'admin'` —— 这样加角色不用改前端。
     #: 默认空列表以兼容老客户端的反序列化（它们会忽略这个字段）。
     capabilities: list[str] = Field(default_factory=list)
+    #: 生效的细粒度权限点（角色权限矩阵 + 多角色并集）。前端按钮级控制用。
+    permissions: list[str] = Field(default_factory=list)
+    #: 是否可进入管理后台（后端统一口径，前端直接用，不再自己重算）。
+    can_enter_admin: bool = False
 
 
 class AuthRegisterRequest(BaseModel):

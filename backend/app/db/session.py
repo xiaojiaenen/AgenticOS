@@ -134,6 +134,11 @@ def _apply_pending_migrations() -> None:
                 command.upgrade(cfg, "head")
                 logger.info("alembic: fresh database upgraded from scratch to head")
             except Exception:
+                # 生产环境绝不静默 stamp head —— 那会把缺失扩展/索引的残缺
+                # schema 标记为「已迁移完成」，正是外层「生产阻断启动」要防的
+                # 场景。开发环境才回退到基线对齐。
+                if _is_production_env():
+                    raise
                 logger.warning(
                     "全新库迁移重放失败（存在无守卫的历史脚本？），回退 stamp head 基线对齐",
                     exc_info=True,

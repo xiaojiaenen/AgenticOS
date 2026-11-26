@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import get_db, require_perm
 from app.db.models import UserModel
 from app.schemas.skills import SkillCreateRequest, SkillListResponse, SkillResponse, SkillUpdateRequest
 from app.services import audit_service
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/skills", tags=["Skills"])
 
 
 @router.get("", response_model=SkillListResponse)
-def list_skills(_: UserModel = Depends(require_admin)) -> dict[str, object]:
+def list_skills(_: UserModel = Depends(require_perm("skill:edit"))) -> dict[str, object]:
     return SkillService().list_admin()
 
 
@@ -27,7 +27,7 @@ def create_skill(
     payload: SkillCreateRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("skill:create")),
 ) -> dict[str, object]:
     try:
         result = SkillService().create(payload, current_user)
@@ -49,7 +49,7 @@ async def upload_skill(
     slug: str | None = Form(default=None),
     enabled: bool = Form(default=True),
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("skill:create")),
 ):
     """上传 skill zip 包。支持单 skill 或多 skill 打包上传。"""
     try:
@@ -86,7 +86,7 @@ def update_skill(
     payload: SkillUpdateRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("skill:edit")),
 ) -> dict[str, object]:
     try:
         result = SkillService().update(skill_id, payload)
@@ -108,7 +108,7 @@ def delete_skill(
     skill_id: int,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("skill:delete")),
 ) -> None:
     try:
         SkillService().delete(skill_id)

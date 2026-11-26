@@ -11,10 +11,11 @@
 - **启发式四信号**（本模块原有实现，``score_result``）：coverage / proximity /
   agreement / base 加权，可解释、零依赖、零抖动，仍然是对外的兜底路径。
 - **FlashRank cross-encoder**（``rerank_scores``，战线 B4 新增）：本地 ONNX
-  模型（MiniLM-L-6-v2，约 33MB，首次使用自动下载到用户缓存目录，之后离线
-  可用），真 cross-encoder 精度。接口原本就留成 ``score_result`` 一条缝，
-  现在把缝扩成批量入口 ``rerank_scores`` —— 模型不可用（离线/下载失败）
-  时返回 None，调用方无缝落回启发式，检索永不因重排挂掉。
+  模型（当前用 MiniLM-L-12-v2，首次使用自动下载到用户缓存目录，之后离线
+  可用）；L-12 比文档最初写的 L-6 精度更高、体积/冷启动更重，这是有意的
+  质量取舍。接口原本就留成 ``score_result`` 一条缝，现在把缝扩成批量入口
+  ``rerank_scores`` —— 模型不可用（离线/下载失败）时返回 None，调用方无缝
+  落回启发式，检索永不因重排挂掉。
 
 ``final = w*flashrank + (1-w)*heuristic``（w 默认 0.65，可配
 ``KB_RERANK_FLASHRANK_WEIGHT``）。cross-encoder 有 p95 抖动，只对 top-K

@@ -64,15 +64,70 @@ _MAX_STEPS_USER_MESSAGE = (
 )
 
 
+# 预览 SVG 的元素 / 属性白名单（fail-closed）。
+# 旧正则净化可被实体编码（javascript&#58;）、`<script x=">">`、
+# `<use xlink:href=javascript:...>` 绕过；这里用 lxml 解析后逐元素清洗，
+# 未知元素/属性一律移除。只作用于「展示层」预览，不改动落盘原始 SVG。
+_SVG_ALLOWED_ELEMENTS = frozenset({
+    "svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline",
+    "polygon", "text", "tspan", "defs", "title", "desc", "clippath", "mask",
+    "lineargradient", "radialgradient", "stop", "pattern", "marker", "image",
+    "use", "symbol", "textpath", "filter", "fegaussianblur", "feoffset",
+    "femerge", "femergenode", "fecolormatrix", "feblend", "fecomposite",
+})
+_SVG_ALLOWED_ATTRS = frozenset({
+    "viewbox", "width", "height", "x", "y", "x1", "y1", "x2", "y2",
+    "cx", "cy", "r", "rx", "ry", "d", "points", "transform", "fill",
+    "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin",
+    "stroke-dasharray", "stroke-dashoffset", "opacity", "fill-opacity",
+    "stroke-opacity", "font-family", "font-size", "font-weight",
+    "font-style", "text-anchor", "dominant-baseline", "letter-spacing",
+    "class", "id", "clip-path", "mask", "filter", "style", "href",
+    "xmlns", "xmlns:xlink", "offset", "stop-color", "stop-opacity",
+    "gradientunits", "marker-start", "marker-end", "marker-mid",
+    "preserveaspectratio",
+})
+
+
 def _sanitize_svg(svg: str) -> str:
-    """移除 SVG 中的脚本向量：<script>、on* 事件属性、javascript:/data:text/html: URL、<foreignObject>。"""
-    svg = _RE_SCRIPT_BLOCK.sub("", svg)
-    svg = _RE_SELF_CLOSING_SCRIPT.sub("", svg)
-    svg = _RE_FOREIGN_OBJECT.sub("", svg)
-    svg = _RE_SELF_CLOSING_FOREIGN_OBJECT.sub("", svg)
-    svg = _RE_EVENT_ATTR.sub("", svg)
-    svg = _RE_JS_URL.sub("", svg)
-    return svg
+    """白名单化 SVG（lxml 解析），移除所有脚本/事件/危险 URL 向量。
+
+    - 非白名单元素（script / foreignObject / animate / iframe …）连带子树移除；
+    - 属性必须是白名单名，且值不得含 javascript:/data:text/html/vbscript:
+      （HTML 实体编码在解析时已还原为原始字符，无法靠编码绕过）；
+    - 解析失败时退化成纯文本（转义全部标签），绝不让不可信内容原样入 HTML。
+    """
+    try:
+        from lxml import etree
+
+        root = etree.fromstring(svg.encode("utf-8"), parser=etree.XMLParser(resolve_entities=False))
+    except Exception:
+        import html as _html
+
+        return _html.escape(re.sub(r"<[^>]*>", "", svg))
+
+    for element in list(root.iter()):
+        tag = element.tag if isinstance(element.tag, str) else ""
+        local = tag.rsplit("}", 1)[-1].lower()
+        if local not in _SVG_ALLOWED_ELEMENTS:
+            parent = element.getparent()
+            if parent is not None:
+                parent.remove(element)
+            continue
+        for attr_name, value in list(element.attrib.items()):
+            local_attr = attr_name.rsplit("}", 1)[-1].lower()
+            is_href = local_attr == "href" or attr_name.endswith("}href")
+            if not is_href and local_attr not in _SVG_ALLOWED_ATTRS:
+                del element.attrib[attr_name]
+                continue
+            lowered = str(value).lower().replace(" ", "")
+            if "javascript:" in lowered or "data:text/html" in lowered or "vbscript:" in lowered:
+                del element.attrib[attr_name]
+
+    try:
+        return etree.tostring(root, encoding="unicode")
+    except Exception:
+        return ""
 
 
 def _has_visible_body(msg: Any) -> bool:
@@ -89,6 +144,11 @@ def _has_visible_body(msg: Any) -> bool:
     思考、没有正文，正是最需要保留的那条。
     """
     if getattr(msg, "reasoning_content", None):
+        return True
+    # 工具调用也是可见内容：前端 backendMessageMapper 会把 tool_calls 渲染成
+    # 工具调用块（含参数与结果状态）。此前只看 reasoning/metadata，导致带
+    # tool_calls 的空 assistant 被 continue 过滤掉 —— 用户刷新后工具调用全消失。
+    if getattr(msg, "tool_calls", None):
         return True
     meta = getattr(msg, "metadata", None) or {}
     if isinstance(meta, dict):
@@ -124,7 +184,9 @@ async def stream_agent(
     # 429 必须在返回 StreamingResponse 之前抛 —— 流一旦开始，状态码就定了。
     rate_cfg = get_settings()
     if rate_cfg.agent_stream_rate_limit > 0 and not is_admin_like(current_user.role):
-        allowed, reset_in = check_window_quota(
+        # 频控读 Redis（同步 IO）——挪到线程，别堵首 token 前的事件循环。
+        allowed, reset_in = await asyncio.to_thread(
+            check_window_quota,
             "agent_stream",
             str(current_user.id),
             limit=rate_cfg.agent_stream_rate_limit,
@@ -423,27 +485,48 @@ async def get_session_messages(
     return result
 
 
-_IMAGE_OUTPUT_RE = re.compile(r"^[A-Za-z0-9._-]+\.(?:png|jpe?g|webp|gif)$", re.I)
+# 会话工作区里允许通过带鉴权端点读取的文件名（图片内联展示，其余下载）。
+# 覆盖生图工具的 png/jpg、analyze_with_pandas 的 csv/xlsx/json 导出，
+# 以及模型直接写到工作区根目录的 html 产物（如 write_text_file(index.html)）。
+# 注意：正则必须禁止 `/`、`..` 等路径成分，路径穿越由后续的 resolve/relative_to 兜底。
+_IMAGE_OUTPUT_RE = re.compile(
+    r"^[A-Za-z0-9._-]+\.(?:csv|xlsx|json|txt|md|html?|png|jpe?g|webp|gif)$", re.I
+)
+
+# 图片内联给 <img> 用，其余类型作为附件下载。
+_INLINE_OUTPUT_EXTENSIONS = frozenset({"png", "jpg", "jpeg", "webp", "gif"})
+
+# 显式覆盖 mimetypes 在部分系统上识别不全的类型（xlsx 尤其常见）。
+_OUTPUT_MEDIA_TYPES = {
+    "csv": "text/csv",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "json": "application/json",
+    "txt": "text/plain",
+    "md": "text/markdown",
+    "html": "text/html",
+    "htm": "text/html",
+}
 
 
-@router.get("/sessions/{session_id}/outputs/{filename}", summary="读取会话工作区里的图片产物")
+@router.get("/sessions/{session_id}/outputs/{filename}", summary="读取会话工作区里的产物文件")
 async def get_session_output_image(
     session_id: str,
     filename: str,
     current_user: UserModel = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
 ):
-    """把生图工具落在 ``outputs/`` 的图片安全地喂给聊天流里的 ``<img>``。
+    """读取落在会话工作区 ``outputs/`` 的产物文件。
 
     工作区不在任何 StaticFiles 挂载下（不能公开读），所以走带鉴权的端点：
-    先校验会话归属，再把文件名限制为纯图片名，避免路径穿越。
+    先校验会话归属，再把文件名限制为白名单扩展名，避免路径穿越。
+    图片内联返回供聊天流里的 ``<img>`` 使用；csv/xlsx/json 等以附件下载。
     """
     from fastapi.responses import FileResponse
     from app.core.data_path import workspace_dir
 
     try:
         await agent_service.ensure_session_access(
-            AgentStreamRequest(message="load_output_image", session_id=session_id), current_user
+            AgentStreamRequest(message="load_output_file", session_id=session_id), current_user
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
@@ -451,22 +534,43 @@ async def get_session_output_image(
     if not _IMAGE_OUTPUT_RE.match(filename or ""):
         raise HTTPException(status_code=400, detail="非法文件名")
 
-    out_dir = (workspace_dir(current_user.id, session_id) / "outputs").resolve()
+    ws_root = workspace_dir(current_user.id, session_id).resolve()
+    out_dir = (ws_root / "outputs").resolve()
+    # 产物既可能落在 outputs/（生图 / pandas 导出），也可能直接写在会话工作区
+    # 根目录（模型用 write_text_file("index.html") 写网页）。两处都找，
+    # 且都做 resolve/relative_to 校验，防止 ../ 逃逸出工作区。
     candidate = (out_dir / filename).resolve()
     try:
         candidate.relative_to(out_dir)
     except ValueError:
         raise HTTPException(status_code=400, detail="非法文件名") from None
     if not candidate.is_file():
-        raise HTTPException(status_code=404, detail="图片不存在")
+        root_candidate = (ws_root / filename).resolve()
+        try:
+            root_candidate.relative_to(ws_root)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="非法文件名") from None
+        if not root_candidate.is_file():
+            raise HTTPException(status_code=404, detail="文件不存在")
+        candidate = root_candidate
 
     import mimetypes
 
+    ext = candidate.suffix.lower().lstrip(".")
     media_type, _ = mimetypes.guess_type(str(candidate))
+    media_type = _OUTPUT_MEDIA_TYPES.get(ext, media_type or "application/octet-stream")
+    # 图片内联展示，其余以附件下载；filename 已通过正则白名单，无 CRLF/引号风险。
+    disposition = (
+        "inline" if ext in _INLINE_OUTPUT_EXTENSIONS else f'attachment; filename="{filename}"'
+    )
     return FileResponse(
         candidate,
-        media_type=media_type or "application/octet-stream",
-        headers={"Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff"},
+        media_type=media_type,
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": disposition,
+        },
     )
 
 
@@ -842,7 +946,20 @@ body {{ background:#0f0f0f; color:#e0e0e0; font-family:Inter,Noto Sans SC,sans-s
 }})();
 </script>
 </body></html>"""
-    return Response(content=html_content, media_type="text/html; charset=utf-8")
+    return Response(
+        content=html_content,
+        media_type="text/html; charset=utf-8",
+        # 同源预览页：允许内联脚本（翻页导航）和内联样式，但禁止外联脚本 /
+        # 网络连接 / frame 嵌套，SVG 中的注入脚本拿不到 cookie 也发不出请求。
+        headers={
+            "Content-Security-Policy": (
+                "default-src 'none'; script-src 'unsafe-inline'; "
+                "style-src 'unsafe-inline'; img-src data:; connect-src 'none'; "
+                "frame-ancestors 'none'; base-uri 'none'"
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/ppt/editor/{artifact_id}", summary="PPT SVG 实时编辑器")
@@ -1145,7 +1262,18 @@ init();
 </script>
 </body>
 </html>"""
-    return Response(content=html, media_type="text/html; charset=utf-8")
+    return Response(
+        content=html,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Content-Security-Policy": (
+                "default-src 'none'; script-src 'unsafe-inline'; "
+                "style-src 'unsafe-inline'; img-src data:; connect-src 'none'; "
+                "frame-ancestors 'none'; base-uri 'none'"
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.post("/ppt/{artifact_id}/update-slides", summary="更新 PPT 幻灯片")

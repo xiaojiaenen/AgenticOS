@@ -46,8 +46,24 @@ def _audit(request: Request, db: Session, *, action: str, result: str, **fields)
         logging.getLogger("agenticos.audit").warning("audit %s failed", action, exc_info=True)
 
 
-def _to_public(user: UserModel) -> UserPublic:
+def _to_public(user: UserModel, db=None) -> UserPublic:
     from app.core.roles import capabilities_for, normalize_role
+
+    # 权限点从统一判定服务取（角色矩阵 + 多角色并集）。db 缺失时退回内置角色
+    # 的静态展开，保证登录/刷新等无 db 上下文路径也能构造出合法响应。
+    permissions: list[str] = []
+    can_enter_admin = False
+    if db is not None:
+        from app.services.permission_checker import (
+            can_enter_admin_by_permissions, capabilities_for_user, permissions_for_user,
+        )
+
+        permissions = sorted(permissions_for_user(db, user))
+        can_enter_admin = can_enter_admin_by_permissions(db, user)
+        # capabilities 也从权限点反推，保持与矩阵一致
+        caps = set(capabilities_for_user(db, user))
+    else:
+        caps = set(capabilities_for(user.role))
 
     return UserPublic(
         id=user.id,
@@ -57,7 +73,9 @@ def _to_public(user: UserModel) -> UserPublic:
         role=normalize_role(user.role),
         is_active=user.is_active,
         auth_source=user.auth_source,
-        capabilities=sorted(capabilities_for(user.role)),
+        capabilities=sorted(caps),
+        permissions=permissions,
+        can_enter_admin=can_enter_admin,
     )
 
 
@@ -383,8 +401,11 @@ def login_mode(
 
 
 @router.get("/me", response_model=UserPublic)
-def me(user: UserModel = Depends(get_current_user)) -> UserPublic:
-    return _to_public(user)
+def me(
+    user: UserModel = Depends(get_current_user),
+    db=Depends(get_db),
+) -> UserPublic:
+    return _to_public(user, db)
 
 
 @router.get("/oidc/status")
@@ -501,13 +522,7 @@ def oidc_complete(
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "role": user.role,
-            "is_active": user.is_active,
-        },
+        "user": _to_public(user, db).model_dump(),
     }
 
 

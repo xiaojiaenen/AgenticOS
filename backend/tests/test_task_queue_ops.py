@@ -169,3 +169,49 @@ async def test_index_bounded(fake_redis):
 
     ids = await redis.zrevrange(m.TASK_INDEX_KEY, 0, -1)
     assert len(ids) <= tq.TASK_INDEX_MAX_ENTRIES
+
+
+def test_queue_stats_redis_unavailable_returns_503(monkeypatch):
+    """queue_stats 单一 except 分流：Redis 不可达 → 503 + 可读提示（旧代码 500）。"""
+    from fastapi.testclient import TestClient
+
+    from app.core.security import create_access_token, hash_password
+    from app.core.config import get_settings
+    from app.db.models import UserModel
+    from app.db.session import create_db_session
+    from app.main import app
+
+    suffix = __import__("uuid").uuid4().hex[:8]
+    email = f"qstats-{suffix}@test.local"
+    with create_db_session() as db:
+        u = UserModel(
+            email=email, name="T", password_hash=hash_password("pw123456"),
+            role="admin", is_active=True,
+        )
+        db.add(u)
+        db.commit()
+        db.refresh(u)
+        uid = u.id
+    token = create_access_token(
+        {"sub": str(uid), "email": email, "role": "admin"},
+        secret=get_settings().auth_secret_key, expires_in_seconds=3600,
+    )
+
+    async def _boom():
+        raise ConnectionError("redis connection refused")
+
+    import app.services.task_queue as tq_mod
+    monkeypatch.setattr(tq_mod, "queue_stats", _boom)
+
+    try:
+        client = TestClient(app)
+        resp = client.get(
+            "/api/v1/tasks/stats",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 503, resp.text
+        assert "Redis" in resp.json()["detail"]
+    finally:
+        with create_db_session() as db:
+            db.query(UserModel).filter(UserModel.email == email).delete()
+            db.commit()

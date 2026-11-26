@@ -31,8 +31,10 @@ _TMP_ROOT.mkdir(parents=True, exist_ok=True)
 _TEST_DB = _TMP_ROOT / "test.db"
 _TEST_DATA_DIR = _TMP_ROOT / "data"
 
-# pydantic-settings 优先级为 os.environ > .env 文件，故此处可覆盖 backend/.env
-os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB.as_posix()}"
+# pydantic-settings 优先级为 os.environ > .env 文件，故此处可覆盖 backend/.env。
+# 用 setdefault：CI 多库矩阵显式注入 DATABASE_URL（PG/MySQL）时必须尊重它，
+# 否则所有 job 都跑 SQLite，方言兼容性根本没验证。本地/默认仍落一次性 SQLite 测试库。
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{_TEST_DB.as_posix()}")
 os.environ["SKILL_STORAGE_DIR"] = str(_TEST_DATA_DIR / "skills")
 os.environ["AGENT_DATA_DIR"] = str(_TEST_DATA_DIR)
 os.environ["APP_ENV"] = "test"
@@ -117,11 +119,17 @@ def _isolated_test_env():
     url = settings.database_url
 
     # Windows 下 str(Path) 是反斜杠，而 DATABASE_URL 以 as_posix() 注入，需归一化后比较
-    assert _TEST_DB.as_posix() in url.replace("\\", "/"), (
-        f"测试未隔离数据库：DATABASE_URL={url!r}，期望包含 {_TEST_DB!r}。"
-        "请检查 tests/conftest.py 顶层的环境变量注入是否被绕过。"
-    )
-    assert url.startswith("sqlite"), f"测试库必须是 SQLite，实际为 {url!r}"
+    # 默认 SQLite 档必须命中一次性临时库；显式注入的 PG/MySQL（CI 多库矩阵）
+    # 使用名字带 test 的独立库，放行但要求仍是可辨识的测试库，防止误连生产库。
+    if url.startswith("sqlite"):
+        assert _TEST_DB.as_posix() in url.replace("\\", "/"), (
+            f"测试未隔离数据库：DATABASE_URL={url!r}，期望包含 {_TEST_DB!r}。"
+            "请检查 tests/conftest.py 顶层的环境变量注入是否被绕过。"
+        )
+    else:
+        assert "test" in url.lower(), (
+            f"非 SQLite 测试库必须使用名字含 test 的库，实际为 {url!r}。"
+        )
     assert str(_TEST_DATA_DIR) in str(DATA_DIR), (
         f"测试未隔离数据目录：DATA_DIR={DATA_DIR}，期望包含 {_TEST_DATA_DIR}。"
     )

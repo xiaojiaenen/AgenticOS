@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_perm
 from app.db.models import UserModel
 from app.schemas.tool_config import ModeToolConfigUpdateRequest, ToolConfigResponse
 from app.services import audit_service
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/tool-config", tags=["Tool Config"])
 
 
 @router.get("", response_model=ToolConfigResponse)
-def get_tool_config(_: UserModel = Depends(require_admin)) -> dict[str, object]:
+def get_tool_config(_: UserModel = Depends(require_perm("tool:configure"))) -> dict[str, object]:
     return ToolConfigService().list_configs()
 
 
@@ -38,7 +38,7 @@ def update_mode_tool_config(
     payload: ModeToolConfigUpdateRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("tool:configure")),
 ) -> dict[str, object]:
     try:
         result = ToolConfigService().update_mode(mode, [item.model_dump() for item in payload.tools])
@@ -65,7 +65,7 @@ def update_mode_tool_config(
 @router.get("/policy")
 def get_agent_tool_policy(
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("tool:configure")),
 ) -> dict[str, object]:
     """当前生效的限制名单 + 全部可选工具（后台勾选界面用）。
 
@@ -113,7 +113,7 @@ def update_agent_tool_policy(
     payload: dict,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("tool:configure")),
 ) -> dict[str, object]:
     """保存限制名单。
 

@@ -60,6 +60,42 @@ def _invoke_handler(tool: Any, arguments: dict[str, Any]) -> Any:
     return asyncio.to_thread(handler, **arguments)
 
 
+def _validate_modified_arguments(tool: Any, arguments: dict[str, Any]) -> None:
+    """审批改参后的安全校验（HITL 改参不得绕过服务端约束）。
+
+    背景：LangChain StructuredTool 对**模型原始参数**做过 schema 校验，但
+    审批人「改参数」是在校验之后才替换 kwargs。若不重新校验，可绕过
+    jsonschema / signature 约束；更严重的是 file 工具把 ``workspace`` 暴露成
+    模型可见参数，改参可提交 ``workspace="/etc"`` 读取宿主任意文件（实测
+    越权面）。这里两层防护：
+      1. 重跑原生 Tool 的 jsonschema + signature.bind；
+      2. ``workspace`` 参数强制限定为会话工作区内的相对路径，禁止绝对路径
+         与 ``..`` 穿越。
+    失败抛 ValueError，由调用方转成工具错误事件。
+    """
+    if not isinstance(arguments, dict):
+        raise ValueError("修改后的参数必须是 JSON 对象")
+
+    # 1) 原生 schema + 签名校验（与原 Tool.invoke 路径一致）
+    try:
+        cache = tool._validation_cache()  # noqa: SLF001 —— 同包适配层
+        cache["validator"].validate(arguments)
+        cache["signature"].bind(**arguments)
+    except Exception as exc:  # ValidationError / TypeError 等
+        raise ValueError(f"修改后的参数未通过校验：{exc}") from exc
+
+    # 2) workspace 越权防护
+    if "workspace" in arguments:
+        from pathlib import Path
+
+        ws = str(arguments.get("workspace") or "")
+        if Path(ws).is_absolute():
+            raise ValueError("禁止通过审批改参指定绝对路径 workspace（越权读宿主机文件）")
+        parts = [p for p in ws.replace("\\", "/").split("/") if p]
+        if ".." in parts:
+            raise ValueError("workspace 禁止包含 .. 路径穿越")
+
+
 @dataclass(frozen=True)
 class InterruptOnConfig:
     """声明式审批配置（对齐 DeepAgents ``InterruptOnConfig`` 形状）。
@@ -236,6 +272,7 @@ def _convert_tool(tool: Any, approval_policy: EngineApprovalPolicy | None, rejec
         import uuid as _uuid
 
         real_tool_call_id = (getattr(runtime, "tool_call_id", None) if runtime is not None else None) or f"lg-{_uuid.uuid4().hex[:12]}"
+        original_arguments = dict(kwargs)  # 改参前快照，用于判断是否需要重校验
         # 有审批策略时先过审批（拒绝 → 走注册表里的 __tool_rejected__ 工具，
         # 与原路径共用同一个 handler，语义/输出一致；respond → 人工代答）
         if approval_policy is not None:
@@ -249,6 +286,14 @@ def _convert_tool(tool: Any, approval_policy: EngineApprovalPolicy | None, rejec
                 })
                 return _serialize_output(result)
             kwargs = outcome.arguments
+            # 审批改参必须在执行前重新过一遍服务端校验（schema + workspace
+            # 越权防护），否则用户可把 file 工具的 workspace 改成 /etc 等任意
+            # 宿主机路径，绕过工作区隔离。校验失败按工具错误处理。
+            if kwargs != original_arguments:
+                try:
+                    _validate_modified_arguments(tool, kwargs)
+                except ValueError as exc:
+                    return _serialize_output({"ok": False, "error": str(exc)})
         result = await _invoke_handler(tool, kwargs)
         serialized = _serialize_output(result)
         # 工具输出截断（原 ToolExecutor 语义移植）

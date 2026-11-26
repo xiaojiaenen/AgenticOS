@@ -147,4 +147,38 @@ def test_factory_uses_deepagents_summarization():
     src = inspect.getsource(AgentFactory._get_agent)
     assert "FilesystemBackend" in src, "factory 未绑定 DeepAgents backend"
     assert "context_compression_enabled" in src, "开关丢失"
+
+
+def test_factory_denies_deepagents_builtin_writes():
+    """DeepAgents 内置 write_file/edit_file/delete 必须收敛为只读。
+
+    这些工具不经过 EngineApprovalPolicy，且 backend root 是全局 data/ ——
+    不 deny 就会越过 HITL 与会话工作区隔离（安全语义回退）。
+    """
+    import inspect
+
+    from app.services.agent.factory import AgentFactory
+
+    src = inspect.getsource(AgentFactory._get_agent)
+    assert "FilesystemPermission" in src
+    assert 'operations=["write"]' in src
+    assert 'mode="deny"' in src
+    assert "deepagents_permissions=deep_permissions" in src
     assert "deepagents_backend" in src, "未把 backend 传给引擎"
+
+
+def test_factory_binds_virtual_filesystem_backend():
+    """DeepAgents backend 必须是 virtual_mode=True，否则绝对路径可越权读宿主文件。
+
+    实测：virtual_mode=False 时 read_file('/etc/passwd' 或 root 外任意文件) 成功；
+    True 模式下所有路径被限制在 root_dir 内。这是安全底线，不能回退。
+    """
+    import inspect
+
+    from app.services.agent.factory import AgentFactory
+
+    src = inspect.getsource(AgentFactory._get_agent)
+    assert "virtual_mode=True" in src, "DeepAgents backend 必须以 virtual_mode=True 绑定"
+
+    # skills 路径必须转成虚拟路径（/skills/xxx），不能是宿主绝对路径
+    assert "relative_to(DATA_DIR.resolve())" in src

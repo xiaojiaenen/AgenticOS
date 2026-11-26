@@ -114,7 +114,8 @@ def knowledge_base_domains(kb) -> list[str]:
 
     部门下线后恒为 global：知识库的可读可写由「admin / 库 owner /
     ``p, user:<id>, *, kb:<id>, <act>`` 直接授权」三者决定，不再按组织归属隔离。
-    ``kb.team_id`` 字段保留但不再参与鉴权（历史数据不动）。
+    知识库的 team 作用域与 team_id 字段已整体删除（组织模型下线）；存量
+    历史值按 org 公开处理。
     """
     return [GLOBAL_DOMAIN]
 
@@ -343,7 +344,11 @@ class PermissionService:
             added = self._enforcer.add_named_grouping_policy(ptype, *params)
         else:
             added = self._enforcer.add_named_policy(ptype, *params)
-        self._loaded_at = time.monotonic()
+        if added:
+            # 必须走 invalidate()：它既清本地缓存（_loaded_at=0）也广播给
+            # 其它 worker。原实现写 self._loaded_at=now 反而标记「刚加载过」，
+            # 导致跨实例变更最长 5s 才被轮询发现、Redis 监听器永远收不到消息。
+            self.invalidate()
         return added
 
     def remove_named_policy(self, ptype: str, *params: str) -> bool:
@@ -351,7 +356,8 @@ class PermissionService:
             removed = self._enforcer.remove_named_grouping_policy(ptype, *params)
         else:
             removed = self._enforcer.remove_named_policy(ptype, *params)
-        self._loaded_at = time.monotonic()
+        if removed:
+            self.invalidate()
         return removed
 
     def add_policy(self, *params: str) -> bool:
@@ -361,17 +367,20 @@ class PermissionService:
         return self.remove_named_policy("p", *params)
 
     def add_policies(self, rules: Sequence[Sequence[str]]) -> None:
-        self._enforcer.add_policies(list(rules))
-        self._loaded_at = time.monotonic()
+        added = self._enforcer.add_policies(list(rules))
+        if added:
+            self.invalidate()
 
     def remove_filtered_policy(self, field_index: int, *field_values) -> bool:
         removed = self._enforcer.remove_filtered_policy(field_index, *field_values)
-        self._loaded_at = time.monotonic()
+        if removed:
+            self.invalidate()
         return removed
 
     def remove_filtered_grouping_policy(self, field_index: int, *field_values) -> bool:
         removed = self._enforcer.remove_filtered_grouping_policy(field_index, *field_values)
-        self._loaded_at = time.monotonic()
+        if removed:
+            self.invalidate()
         return removed
 
     def get_policy(self) -> list[list[str]]:
@@ -406,12 +415,14 @@ class PermissionService:
         adapter 落库与 role link 重建。
         """
         added = self._enforcer.add_grouping_policy(user, role, domain)
-        self._loaded_at = time.monotonic()
+        if added:
+            self.invalidate()
         return added
 
     def delete_role_for_user(self, user: str, role: str, domain: str = "*") -> bool:
         removed = self._enforcer.remove_grouping_policy(user, role, domain)
-        self._loaded_at = time.monotonic()
+        if removed:
+            self.invalidate()
         return removed
 
     # -- 引导 -------------------------------------------------------------

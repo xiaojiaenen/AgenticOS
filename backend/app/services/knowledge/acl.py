@@ -212,11 +212,41 @@ def replace_grants(
             continue
         normalized[(principal_type, principal_id)] = role
 
+    # 先记录当前成员表里的用户，找出被移除的人 —— 他们可能同时持有
+    # Casbin 直接策略（p, user:X, *, kb:N, act），仅删成员表会留下越权残留。
+    previous_user_ids = {
+        int(row[0]) for row in db.execute(
+            select(KBAccessControlModel.principal_id).where(
+                KBAccessControlModel.knowledge_base_id == kb_id,
+                KBAccessControlModel.principal_type == "user",
+            )
+        ).all()
+    }
+    kept_user_ids = {pid for (ptype, pid) in normalized if ptype == "user"}
+    removed_user_ids = previous_user_ids - kept_user_ids
+
     db.execute(
         delete(KBAccessControlModel).where(
             KBAccessControlModel.knowledge_base_id == kb_id
         )
     )
+    # 同步撤销被移除用户的 Casbin 直接策略（两套授权源必须一起清）
+    if removed_user_ids:
+        try:
+            from app.services.permission_service import (
+                get_permission_service, subject_for_user,
+            )
+
+            service = get_permission_service()
+            for uid in removed_user_ids:
+                # 轻量对象即可：subject_for_user 只读 user.id
+                from types import SimpleNamespace
+                subject = subject_for_user(SimpleNamespace(id=uid))
+                for act in ("read", "write", "delete", "admin"):
+                    service.remove_policy(subject, "*", f"kb:{kb_id}", act)
+        except Exception:  # noqa: BLE001 - Casbin 清理失败不阻断成员表更新
+            logger.warning("清理被移除成员的 Casbin 策略失败 kb=%s", kb_id, exc_info=True)
+
     for (principal_type, principal_id), role in normalized.items():
         db.add(
             KBAccessControlModel(

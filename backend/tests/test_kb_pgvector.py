@@ -26,6 +26,7 @@ class _FakeDialect:
 class _FakeBind:
     def __init__(self, dialect_name):
         self.dialect = _FakeDialect(dialect_name)
+        self.url = f"postgresql://test/{dialect_name}"
 
 
 def _db(dialect="sqlite", rows=None):
@@ -73,6 +74,16 @@ def test_probe_exception_is_false_not_raise():
     db = _db("postgresql")
     db.execute.side_effect = RuntimeError("boom")
     assert pgvector_available(db) is False
+
+
+def test_probe_cache_shared_across_sessions_same_bind():
+    """缓存键按连接目标，不再按 session 对象地址 —— 两个 session 共享一次探测。"""
+    db1 = _db("postgresql")
+    db1.execute.return_value.scalar.side_effect = [True, "vector"]
+    db2 = _db("postgresql")
+    assert pgvector_available(db1) is True
+    assert pgvector_available(db2) is True
+    assert db2.execute.call_count == 0  # 第二个 session 直接命中缓存
 
 
 def test_similarity_search_aggregates_by_page_max():

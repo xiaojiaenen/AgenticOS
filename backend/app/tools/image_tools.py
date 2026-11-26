@@ -81,7 +81,7 @@ def register_image_tools(registry: ToolRegistry) -> None:
 
         return "\n".join(output_lines)
 
-    @registry.tool(display_name="获取图片信息")
+    @registry.tool(display_name="获取图片信息", requires_approval=True)
     async def get_image_info(url: str) -> str:
         """获取图片的元数据信息（尺寸、格式、是否可用）。
 
@@ -92,10 +92,19 @@ def register_image_tools(registry: ToolRegistry) -> None:
         """
         import httpx
 
+        from app.services.intranet_client import guard_url
+
+        # SSRF 防护：所有出网 URL 先过统一策略；不跟随重定向（避免 302
+        # 到内网/元数据地址绕过校验）。
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            guard_url(url)
+        except PermissionError as exc:
+            return f"获取图片信息失败：{exc}"
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
                 # HEAD 请求检查可用性
-                head_response = await client.head(url, follow_redirects=True)
+                head_response = await client.head(url)
 
                 if head_response.status_code != 200:
                     return f"图片不可用，HTTP 状态码: {head_response.status_code}"
@@ -111,7 +120,6 @@ def register_image_tools(registry: ToolRegistry) -> None:
                 range_response = await client.get(
                     url,
                     headers={"Range": "bytes=0-1023"},
-                    follow_redirects=True,
                 )
 
                 info_lines = [

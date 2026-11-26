@@ -1,13 +1,11 @@
-"""run 级预算断路器（wuwei BudgetMiddleware 接入）+ 流式端点每用户频控 回归测试。
+"""run 级预算断路器（自研 Budget，DeepAgents 无等价计费语义）+ 频控回归。
 
-背景：wuwei 3.3.0 自带 ``BudgetMiddleware``（token/成本断路），项目此前
-一直没用 —— 长任务绕圈/重试可能烧掉预估 10-20 倍 token，只能靠
-agent_max_steps 的步数上限兜底，token 维度无任何护栏。接入点：
+背景：长任务绕圈/重试可能烧掉预估 10-20 倍 token，agent_max_steps 只兜步数，
+token/成本维度需要独立护栏。接入点：
 
 - factory._build_run_budget：配置 → Budget（未启用/配置非法降级 None）
-- factory._build_middleware_stack：预算中间件插在最前（超限省掉本次调用）
-- 超限行为：硬阈值抛 BudgetExhausted → 上游 runner 转 SSE error 事件；
-  软阈值（80%）只记一次 WARNING。
+- engine：每次 AIMessage 产出后 check_budget（含纯文本回答）
+- 超限行为：硬阈值抛 BudgetExhausted → SSE error 事件；软阈值（80%）每 run 只记一次 WARNING。
 
 频控：/agent/stream 此前无每用户限流（llm_gate 只是全站并发闸），
 单个用户刷运行能把并发配额刷满饿死别人。现在固定窗口频控 + 管理员豁免。
@@ -323,3 +321,59 @@ class TestStreamRateLimit:
             cleanup_test_users(email_user, email_admin)
             app.dependency_overrides.clear()
             self._clear_window_mem()
+
+
+def test_estimate_cost_accepts_both_usage_key_sets():
+    """成本估算必须同时认网关原生键与 LangChain/DeepAgents 键。
+
+    快照只输出 input_tokens/output_tokens 时，旧实现读 prompt_tokens/
+    completion_tokens 恒返回 0，导致 AGENT_BUDGET_MAX_COST_USD 完全失效。
+    """
+    from app.services.agent.native.budget import estimate_cost
+
+    legacy = estimate_cost(
+        {"prompt_tokens": 2_000_000, "completion_tokens": 1_000_000}, "gpt-4o"
+    )
+    native = estimate_cost(
+        {"input_tokens": 2_000_000, "output_tokens": 1_000_000}, "gpt-4o"
+    )
+    assert native == legacy
+    assert legacy > 0
+
+    from app.services.agent.langgraph_engine.engine import _UsageTracker
+
+    t = _UsageTracker()
+    t.add_usage({"input_tokens": 1000, "output_tokens": 500})
+    snap = t.snapshot()
+    assert snap["input_tokens"] == 1000
+    assert snap["prompt_tokens"] == 1000
+    assert snap["completion_tokens"] == 500
+    assert estimate_cost(snap, "gpt-4o") > 0
+
+
+def test_plan_mode_only_registers_read_only_tools():
+    """计划模式必须从注册表移除所有写工具（发邮件/部署/生图/写文件等）。
+
+    之前只过滤了 builtin 插件循环，app/tools/*.py 注册的写工具仍可用，
+    导致「只做只读调研」的承诺失效。这里直接验证注册表结果。
+    """
+    from app.services.agent.factory import AgentFactory
+    from app.services.agent_profile_service import RuntimeAgentProfile
+    from app.services.tool_config_service import DEFAULT_MODE_TOOLS
+
+    tools = tuple(DEFAULT_MODE_TOOLS["general"].keys())
+    profile = RuntimeAgentProfile(
+        profile_id=1, name="plan-test", slug="plan-test", response_mode="general",
+        system_prompt="", builtin_tools=tools, approval_tools=frozenset(),
+        signature=tuple((name, True, False) for name in tools), skills=(),
+        plan_mode=True, allowed_tools=frozenset(tools),
+    )
+    registry, _ = AgentFactory._build_tool_registry(profile)
+    names = set(t.name for t in registry.list_tools())
+
+    # 只读工具保留
+    assert "list_files" in names
+    assert "read_text_file" in names
+    # 写工具必须全部移除
+    for write_tool in ("send_email", "deploy_website", "generate_image", "write_text_file", "python", "build_website"):
+        assert write_tool not in names, f"计划模式不应注册写工具: {write_tool}"

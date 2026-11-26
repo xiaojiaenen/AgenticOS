@@ -233,8 +233,19 @@ def _build_system_tool_handler(
                 logger.warning("API call: %s %s, params=%s, body=%s", api.method, url,
                              {k: v for k, v in params.items() if k != 'password'},
                              {k: v for k, v in (body_params if isinstance(body_params, dict) else {}).items() if k != 'password'})
+                # SSRF：逐跳校验每个 HA 地址（含用户占位符解析后的 path），
+                # 不跟随重定向；被策略拒绝的地址按不可达处理，继续下一个 HA。
+                from app.services.intranet_client import guard_url
+
                 try:
-                    async with httpx.AsyncClient(timeout=api.timeout_seconds, follow_redirects=True) as client:
+                    guard_url(url)
+                except PermissionError as exc:
+                    logger.warning("API call blocked by egress policy: %s", exc)
+                    last_error = str(exc)
+                    response = None
+                    continue
+                try:
+                    async with httpx.AsyncClient(timeout=api.timeout_seconds, follow_redirects=False) as client:
                         request = client.build_request(
                             method=api.method,
                             url=url,

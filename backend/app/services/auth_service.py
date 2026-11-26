@@ -32,12 +32,23 @@ class AuthService:
         self.settings = settings
 
     def _public_user(self, user: UserModel) -> dict[str, object]:
+        # 权限点从统一判定服务取（角色矩阵 + 多角色并集），与 /auth/me 同源。
+        # 登录响应里就带上，前端首次渲染即可做按钮级控制，无需额外请求。
+        from app.core.roles import normalize_role
+        from app.services.permission_checker import (
+            can_enter_admin_by_permissions, capabilities_for_user, permissions_for_user,
+        )
+
         return {
             "id": user.id,
             "email": user.email,
             "name": user.name,
-            "role": user.role,
+            "role": normalize_role(user.role),
             "is_active": user.is_active,
+            "auth_source": user.auth_source,
+            "capabilities": sorted(capabilities_for_user(self.db, user)),
+            "permissions": sorted(permissions_for_user(self.db, user)),
+            "can_enter_admin": can_enter_admin_by_permissions(self.db, user),
         }
 
     def _create_token(self, user: UserModel, session_id: str) -> str:

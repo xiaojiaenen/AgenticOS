@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import get_db, require_perm
 from app.core.data_path import set_current_user_id
 from app.db.models import LlmProviderModel, UserModel
 from app.services import audit_service
@@ -207,7 +207,7 @@ def _audit(
 @router.get("")
 def list_llm_providers(
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("provider:manage")),
 ) -> dict:
     """列表 + 当前生效来源。
 
@@ -243,7 +243,7 @@ def list_llm_providers(
 def create_llm_provider(
     payload: ProviderCreatePayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     try:
@@ -287,7 +287,7 @@ def create_llm_provider(
 @router.post("/import-env", status_code=status.HTTP_201_CREATED)
 def import_from_env(
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """把环境变量里的 LLM 配置落成一个真实的提供商记录。
@@ -333,7 +333,7 @@ def update_llm_provider(
     provider_id: int,
     payload: ProviderUpdatePayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     row = _require_provider(db, provider_id)
@@ -364,7 +364,7 @@ def update_llm_provider(
 def delete_llm_provider(
     provider_id: int,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> None:
     row = _require_provider(db, provider_id)
@@ -381,7 +381,7 @@ def delete_llm_provider(
 def set_default_llm_provider(
     provider_id: int,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     row = _require_provider(db, provider_id)
@@ -403,7 +403,7 @@ async def test_llm_provider(
     provider_id: int,
     http_request: Request,
     deep: bool = False,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """分阶段连通性诊断。失败也返回 200 + ``ok=false``：这是诊断结果，不是请求错误。
@@ -440,7 +440,7 @@ async def test_llm_provider(
 async def test_provider_draft(
     payload: ProviderTestPayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """保存前试连：直接测表单里尚未落库的配置。
@@ -519,7 +519,7 @@ def _require_enterprise(row) -> None:
 def get_provider_credential(
     provider_id: int,
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("provider:manage")),
 ) -> dict:
     row = _require_provider(db, provider_id)
     _require_enterprise(row)
@@ -536,7 +536,7 @@ def update_provider_credential(
     provider_id: int,
     payload: CredentialPayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     row = _require_provider(db, provider_id)
@@ -568,7 +568,7 @@ def update_provider_credential(
 def clear_provider_credential(
     provider_id: int,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     row = _require_provider(db, provider_id)
@@ -588,7 +588,7 @@ async def login_provider(
     provider_id: int,
     http_request: Request,
     credential_id: int | None = None,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """触发一次自动登录（Playwright）。
@@ -637,7 +637,7 @@ def put_manual_cookie(
                     "「priority 最小、id 最小」那条 —— 如果那条是别的账号，"
                     "Cookie 就贴错了对象，界面上看起来像「保存成功但仍不可用」。",
     ),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """手贴 Cookie 兜底。
@@ -708,7 +708,7 @@ def _accounts_view(db: Session, provider_id: int) -> list[dict]:
 def list_provider_accounts(
     provider_id: int,
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("provider:manage")),
 ) -> dict:
     """账号池列表。**只返回状态，不返回 Cookie 与密码。**"""
     row = _require_provider(db, provider_id)
@@ -727,7 +727,7 @@ def create_provider_account(
     provider_id: int,
     payload: AccountCreatePayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     row = _require_provider(db, provider_id)
@@ -772,7 +772,7 @@ def update_provider_account(
     credential_id: int,
     payload: AccountUpdatePayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     row = _require_provider(db, provider_id)
@@ -822,7 +822,7 @@ def delete_provider_account(
     provider_id: int,
     credential_id: int,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> None:
     row = _require_provider(db, provider_id)
@@ -845,7 +845,7 @@ def put_account_cookie(
     credential_id: int,
     payload: ManualCookiePayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """给指定账号手贴 Cookie。多账号时「贴给谁」必须显式，不能靠默认。"""
@@ -895,7 +895,7 @@ def put_account_cookie(
 def list_provider_models(
     provider_id: int,
     db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("provider:manage")),
 ) -> dict:
     row = _require_provider(db, provider_id)
     items = [catalog.to_dict(item) for item in catalog.list_models(db, provider_id)]
@@ -922,7 +922,7 @@ async def discover_provider_models(
     provider_id: int,
     http_request: Request,
     persist: bool = True,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """从上游拉模型清单。
@@ -1021,7 +1021,7 @@ def create_provider_model(
     provider_id: int,
     payload: dict,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """手动往目录里加一个模型。
@@ -1061,7 +1061,7 @@ def delete_provider_model(
     provider_id: int,
     model_id: int,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> None:
     _require_provider(db, provider_id)
@@ -1079,7 +1079,7 @@ def update_provider_roles(
     provider_id: int,
     payload: RoleBindingPayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """按用途绑定模型。
@@ -1132,7 +1132,7 @@ def update_provider_roles(
 async def batch_health_check(
     http_request: Request,
     provider_ids: list[int] | None = None,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("provider:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     """批量健康探测（战线 E 8.5.1）：所有启用 provider 的延迟/失败率/账号池状态。

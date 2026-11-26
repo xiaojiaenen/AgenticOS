@@ -11,6 +11,7 @@
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 from app.core.data_path import DATA_DIR, is_external_api_call
@@ -182,7 +183,10 @@ class AgentFactory:
             interrupt_on: dict[str, bool | InterruptOnConfig] = {}
             auto_approve: set[str] = {"*"}
         else:
-            approval_mode = "ask" if approval_mode == "full" else approval_mode
+            # 非管理员选 full 时不静默降为 ask（那会让用户以为档位没生效、
+            # 反而每次都问）。统一降为 auto —— 与系统默认值一致：只读放行、
+            # 写操作仍需审批，既不越权也不骚扰。
+            approval_mode = "auto" if approval_mode == "full" else approval_mode
             approval_tools = set(profile.approval_tools)
             auto_approve = set()
             interrupt_on = {
@@ -203,22 +207,92 @@ class AgentFactory:
         # 绑定它自己的 FilesystemBackend：skills 从磁盘 SKILL.md 读，
         # summarization 把裁剪的历史落盘，subagents 走内置 task() 工具。
         from deepagents.backends import FilesystemBackend
-        # DeepAgents backend 指向项目 data 目录（skills 的 SKILL.md 在 data/skills，
-        # summarization 的裁剪历史落 data/conversation_history）
-        deep_backend = FilesystemBackend(root_dir=str(DATA_DIR), virtual_mode=False)
+        from deepagents.middleware.filesystem import FilesystemPermission
 
-        # skills: profile 绑定的 skill 目录（SKILL.md 所在目录）
+        # DeepAgents backend 指向项目 data 目录。virtual_mode=True 是安全底线：
+        # False 模式下绝对路径（如 /etc/passwd）会绕过 root_dir 直接读取宿主
+        # 文件系统（已实测可越权读 root 外任意文件）。True 模式下所有路径都是
+        # 以 / 开头的虚拟路径，映射到 root_dir 内部，越界会被拒绝。
+        deep_backend = FilesystemBackend(root_dir=str(DATA_DIR), virtual_mode=True)
+
+        # 安全底线：DeepAgents 0.7.41 默认注入 write_file / edit_file / delete 等
+        # 内置写工具，它们不经过我们的 EngineApprovalPolicy，且 backend 是全局
+        # data/ —— 模型可越权改写其它会话/用户的文件。这里用 DeepAgents 原生
+        # permissions 把模型可调用的内置写/删工具收敛为只读：
+        #   - 读（ls/read_file/glob/grep）放行，SkillsMiddleware 才能读 SKILL.md；
+        #   - 写/删（write_file/edit_file/delete）一律 deny，返回权限拒绝错误。
+        # 真正需要落盘时走我们自己的 file 系列工具（有 HITL 审批 + 会话级
+        # workspace 隔离）；summarization 直接调 backend，不受此规则影响。
+        deep_permissions: list[FilesystemPermission] = [
+            FilesystemPermission(operations=["write"], paths=["/**"], mode="deny"),
+        ]
+
+        # 精细控制内置工具：write_file/edit_file/delete 已被 permissions 拒绝，
+        # execute 在非 sandbox backend 下不可用 —— 从模型可见工具列表里彻底移除，
+        # 省 token 且避免模型反复误调用。同时开启大输出 offload：
+        # 超过 20k token 的读取结果 evict 到 backend 文件、二进制内容落盘，
+        # 防止大文件把上下文撑爆（DeepAgents 0.7.41 原生能力）。
+        from deepagents.middleware.filesystem import FilesystemMiddleware
+
+        deep_fs_middleware = FilesystemMiddleware(
+            backend=deep_backend,
+            permissions=deep_permissions,
+            tools=["ls", "read_file", "glob", "grep"],
+            tool_token_limit_before_evict=20_000,
+            offload_binary_content=True,
+            # 中文描述：明确只读边界，引导模型把写操作交给自研 file 工具
+            # （有 HITL 审批 + 会话级 workspace 隔离），避免误调用内置写工具。
+            custom_tool_descriptions={
+                "ls": "列出会话数据目录中的文件和目录（只读）。路径须以 / 开头，如 /skills/。",
+                "read_file": "读取会话数据目录中的文本文件（只读）。路径为虚拟路径，如 /skills/xxx/SKILL.md。需要写文件时请改用 write_text_file 工具（有审批保护）。",
+                "glob": "按通配符模式查找会话数据目录中的文件（只读），如 /skills/**/SKILL.md。",
+                "grep": "在会话数据目录中搜索文本内容（只读）。用于检索 SKILL.md 等文档内容。",
+            },
+        )
+
+        # skills: profile 绑定的 skill 目录（SKILL.md 所在目录）。
+        # virtual_mode=True 下必须用虚拟路径（/skills/xxx → root_dir/skills/xxx），
+        # 传宿主绝对路径会被映射成 root_dir/<绝对路径> 而找不到文件。
         deep_skills: list[str] = []
         if "skill" in profile.builtin_tools and profile.skills:
             for skill in profile.skills:
                 root = getattr(skill, "root_dir", None)
                 if root:
-                    deep_skills.append(str(root))
+                    try:
+                        rel = Path(root).resolve().relative_to(DATA_DIR.resolve())
+                        deep_skills.append("/" + rel.as_posix())
+                    except ValueError:
+                        # 不在 data/ 下的历史 skill：跳过，避免越权读宿主路径
+                        _logger.warning("skill 目录不在 data/ 内，跳过 DeepAgents 绑定: %s", root)
 
         # subagents: 用 DeepAgents SubAgent TypedDict（tools 是 LC tool 列表）
         deep_subagents: list[dict] = []
         if self.settings.async_sub_agents_enabled:
             deep_subagents = self._build_deepagents_subagents()
+
+        # 可选：DeepAgents RubricMiddleware（在线自评估达标循环）。默认关闭，
+        # 开启后 grader 用同一网关独立评估，不达标则让 agent 再迭代一轮。
+        deep_middleware: list[Any] = [deep_fs_middleware]
+        if getattr(self.settings, "deepagents_rubric_enabled", False):
+            try:
+                from deepagents.middleware.rubric import RubricMiddleware
+                from app.services.agent.langgraph_engine.chat_model import GatewayChatModel
+
+                grader_model = GatewayChatModel(gateway=llm, model_name=effective_model)
+                deep_middleware.append(
+                    RubricMiddleware(
+                        model=grader_model,
+                        system_prompt=(
+                            "你是交付质量评审员。检查助手的最终回答是否完整、准确、"
+                            "满足用户请求。若有明显遗漏或错误，指出具体问题。"
+                        ),
+                        max_iterations=int(
+                            getattr(self.settings, "deepagents_rubric_max_iterations", 2)
+                        ),
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 - 可选能力失败不应阻断 agent
+                _logger.warning("RubricMiddleware 加载失败，已跳过：%s", exc)
 
         agent = LangGraphAgent(
             llm=llm,
@@ -232,6 +306,8 @@ class AgentFactory:
             deepagents_backend=deep_backend,
             deepagents_skills=deep_skills or None,
             deepagents_subagents=deep_subagents or None,
+            deepagents_permissions=deep_permissions,
+            deepagents_middleware=deep_middleware,
         )
         self._agents[cache_key] = agent
         return agent
@@ -268,10 +344,14 @@ class AgentFactory:
         return subs
 
     def _native_tools_for(self, plugin_names: list[str]) -> list[Any]:
-        """把我们 native builtin 插件的 Tool 转成 DeepAgents 接受的 LC tool。
+        """把 native builtin 插件的**只读**工具转成 DeepAgents 接受的 LC tool。
 
-        DeepAgents ``tools`` 接受 ``BaseTool | Callable | dict``；我们的 Tool
-        有 ``handler``，用 registry_to_langchain_tools 包装一次即可。
+        安全边界：DeepAgents SubAgentMiddleware 在**独立 middleware 栈**里执行
+        子代理，不共享主 agent 的 ``EngineApprovalPolicy``，也没有前端审批通道。
+        因此子代理工具必须本身无副作用 —— 只暴露 ``is_read_only`` 的工具，
+        彻底移除脚本执行 / 文件写入 / git 写操作。否则提示注入可让 ``task()``
+        把 ``run_python_script(workspace=<绝对路径>)`` 派给子代理，以服务进程
+        权限零审批执行任意脚本（已实测该绕过路径）。
         """
         from app.services.agent.native.plugins import PluginContext
         from app.services.agent.native.tool_registry import ToolRegistry
@@ -285,7 +365,19 @@ class AgentFactory:
                 mod.setup(ctx)
             except Exception as e:  # noqa: BLE001
                 _logger.warning("Sub-agent plugin setup failed: %s: %s", name, e)
-        return registry_to_langchain_tools(reg)
+
+        # 只保留只读工具（python/git_add/git_commit/file 写类全部被排除）。
+        # 判定用 execution 策略：无副作用 + 不需审批；单靠 concurrency_safe
+        # 不够（它在显式 is_concurrency_safe=True 时会覆盖副作用语义）。
+        # 用新建 registry 过滤，避免修改原注册表的共享状态。
+        read_only = ToolRegistry()
+        for tool in reg.list_tools():
+            execution = getattr(tool, "execution", None)
+            side_effect = bool(getattr(execution, "side_effect", False)) if execution else False
+            needs_approval = bool(getattr(execution, "requires_approval", False)) if execution else False
+            if not side_effect and not needs_approval:
+                read_only.register(tool)
+        return registry_to_langchain_tools(read_only)
 
     def _credential_rotation_bucket(self) -> int:
         """账号池轮换窗口编号（与 DeepAgents 无关，保留）。"""
@@ -405,6 +497,10 @@ class AgentFactory:
 
         _register_data_analysis(registry)
 
+        from app.tools.dataframe_tools import register_dataframe_tools as _register_dataframe
+
+        _register_dataframe(registry)
+
         from app.services.a2ui import register_a2ui_tools as _register_a2ui
 
         _register_a2ui(registry)
@@ -482,6 +578,27 @@ class AgentFactory:
                     profile.slug,
                     len(removed),
                     "、".join(sorted(removed)[:8]),
+                )
+
+        # 计划模式兜底：所有工具注册完后，按「只读白名单」再过滤一遍注册表。
+        # 前面的 blocked 只作用于 builtin 插件循环，app/tools/*.py（发邮件/部署/
+        # 生图/写文档）与 MCP 工具仍会注册 —— 必须从注册表统一移除，否则计划模式
+        # 的「只做只读调研」承诺形同虚设。
+        if getattr(profile, "plan_mode", False):
+            from app.services.approval_policy import is_read_only_tool
+
+            plan_removed: list[str] = []
+            for tool_name, tool in list(registry._tools.items()):
+                args = {}
+                if tool_name == "file":
+                    args = {"action": "list_files"}  # file 组的只读子操作放行
+                if not is_read_only_tool(tool_name, args):
+                    _unregister_if_exists(registry, tool_name)
+                    plan_removed.append(tool_name)
+            if plan_removed:
+                _logger.info(
+                    "plan mode: 从注册表移除 %d 个非只读工具（%s）",
+                    len(plan_removed), "、".join(sorted(plan_removed)[:10]),
                 )
 
         # 统一工具执行层：同步 handler 包装成异步版本（防止事件循环阻塞）

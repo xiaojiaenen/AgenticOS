@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -26,6 +28,7 @@ from app.core.roles import is_admin_like
 
 router = APIRouter(tags=["published-items"])
 
+_logger = logging.getLogger(__name__)
 _service = PublishedItemService()
 
 
@@ -53,6 +56,7 @@ def request_publish(
             user_id=user.id,
             title=payload.title,
             description=payload.description or "",
+            is_admin=is_admin_like(user.role),
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -68,11 +72,15 @@ def request_publish(
 def list_mine(
     user: UserModel = Depends(get_current_user),
 ):
-    items = [i for i in _service.list_all(limit=200) if i["user_id"] == user.id]
-    return {"items": items}
+    return {"items": _service.list_by_user(user.id, limit=200)}
 
 
-@router.get("/api/v1/published-items/{item_id}", summary="发布记录详情")
+@router.get("/api/v1/published-items/gallery", summary="作品库：文件型作品")
+def gallery(user: UserModel = Depends(get_current_user)):
+    return {"items": _service.list_gallery(viewer_id=user.id, is_admin=is_admin_like(user.role))}
+
+
+@router.get("/api/v1/published-items/{item_id:int}", summary="发布记录详情")
 def get_one(item_id: int, user: UserModel = Depends(get_current_user)):
     item = _service.get(item_id)
     if item is None:
@@ -159,8 +167,8 @@ def admin_decide(
                         description=result.get("description"),
                     )
                 )
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception:  # noqa: BLE001 —— 通知失败不影响审批结果，但必须留痕
+            _logger.warning("发布审批通过的邮件通知失败", exc_info=True)
 
     return result
 
@@ -168,12 +176,7 @@ def admin_decide(
 # ── 公开访问 ──────────────────────────────────────────────────────────
 
 
-@router.get("/api/v1/published-items/gallery", summary="作品库：文件型作品")
-def gallery(user: UserModel = Depends(get_current_user)):
-    return {"items": _service.list_gallery(viewer_id=user.id, is_admin=is_admin_like(user.role))}
-
-
-@router.get("/api/v1/published-items/{item_id}/download", summary="下载已发布的文件")
+@router.get("/api/v1/published-items/{item_id:int}/download", summary="下载已发布的文件")
 def download(item_id: int, download: int = Query(0, ge=0, le=1)):
     """下载 / 内联预览已发布的文件。
 

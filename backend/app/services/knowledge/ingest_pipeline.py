@@ -158,6 +158,15 @@ class IngestPipeline:
             logger.error(f"Pipeline failed for document {document_id}: {e}")
             result["errors"].append(str(e))
             self._update_document_status(db, document_id, "failed")
+            # 记录失败原因：前端要能显示"为什么失败"，否则用户只能看到
+            # 一个光秃秃的「失败」状态，无法自助排查或决定重试策略。
+            try:
+                doc = db.get(KBDocumentModel, document_id)
+                if doc is not None:
+                    doc.error_message = str(e)[:2000]
+                    db.add(doc)
+            except Exception:  # noqa: BLE001 - 写错误信息失败不影响原异常
+                pass
             db.commit()
         finally:
             db.close()
@@ -428,6 +437,40 @@ def process_document_ingest(
     return pipeline.process_document(document_id, knowledge_base_id)
 
 
+def _reindex_chunks_without_vectors(
+    *, db_session_factory, knowledge_base_id: int, force: bool, limit, stats: dict
+) -> None:
+    """向量未启用时的兜底：只补段级切片，不写 embedding。"""
+    from sqlalchemy import exists, select
+    from app.db.models import KBChunkModel
+    from app.services.knowledge.chunk_index import rebuild_page_chunks
+
+    db = db_session_factory()
+    try:
+        stmt = select(KBWikiPageModel).where(
+            KBWikiPageModel.knowledge_base_id == knowledge_base_id,
+            KBWikiPageModel.is_active.is_(True),
+        )
+        if not force:
+            has_chunks = exists().where(KBChunkModel.page_id == KBWikiPageModel.id)
+            stmt = stmt.where(~has_chunks)
+        if limit:
+            stmt = stmt.limit(limit)
+        pages = list(db.execute(stmt).scalars().all())
+        stats["checked"] = len(pages)
+        for page in pages:
+            result = rebuild_page_chunks(db, page, embed=False)
+            stats["chunks"] += result["chunks"]
+        db.commit()
+        # 切片变更后失效检索缓存
+        invalidate_knowledge_cache()
+    except Exception as exc:  # noqa: BLE001
+        stats["failed"] += 1
+        logger.warning("无向量切片重建失败 kb=%s: %s", knowledge_base_id, exc)
+    finally:
+        db.close()
+
+
 def reindex_knowledge_base(
     knowledge_base_id: int,
     *,
@@ -469,7 +512,10 @@ def reindex_knowledge_base(
 
     embedder = get_knowledge_embedder()
     if not embedder.is_enabled():
-        stats["message"] = "向量检索未启用（未配置 OPENAI_API_KEY 或 KNOWLEDGE_VECTOR_ENABLED=false）"
+        # 向量通道未启用时仍要重建段级切片：编译链路承诺「切片即使没有
+        # 向量也照样落库」，reindex 曾直接返回导致存量页永远补不出切片。
+        stats["message"] = "向量检索未启用，仅重建段级切片（不写向量）"
+        _reindex_chunks_without_vectors(db_session_factory=SessionLocal, knowledge_base_id=knowledge_base_id, force=force, limit=limit, stats=stats)
         return stats
     stats["enabled"] = True
 

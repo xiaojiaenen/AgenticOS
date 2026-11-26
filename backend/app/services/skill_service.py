@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import shutil
 import tempfile
 import zipfile
@@ -27,6 +28,8 @@ class RuntimeSkill:
 
 
 from app.services.session_storage import slugify as _shared_slugify
+
+_logger = logging.getLogger(__name__)
 
 
 class SkillService:
@@ -62,27 +65,36 @@ class SkillService:
                 skill_dir.mkdir(parents=True, exist_ok=False)
             except FileExistsError:
                 raise ValueError(f"Skill directory already exists for slug: {slug}")
-            skill_path = skill_dir / "SKILL.md"
-            skill_path.write_text(
-                self._render_skill_markdown(
-                    name=request.name,
-                    description=request.description,
-                    instruction=request.instruction,
-                ),
-                encoding="utf-8",
-            )
 
-            row = SkillModel(
-                name=request.name,
-                slug=slug,
-                description=request.description,
-                enabled=request.enabled,
-                root_dir=str(skill_dir),
-                created_by=creator.id,
-            )
-            db.add(row)
-            db.commit()
-            db.refresh(row)
+            # 先建目录 + 写文件，再 commit。commit 失败必须把目录一起回滚，
+            # 否则留下孤儿目录：DB 里没这行，但 _unique_slug（现已同时查
+            # 文件系统）会认为 slug 被永久占用。
+            try:
+                skill_path = skill_dir / "SKILL.md"
+                skill_path.write_text(
+                    self._render_skill_markdown(
+                        name=request.name,
+                        description=request.description,
+                        instruction=request.instruction,
+                    ),
+                    encoding="utf-8",
+                )
+
+                row = SkillModel(
+                    name=request.name,
+                    slug=slug,
+                    description=request.description,
+                    enabled=request.enabled,
+                    root_dir=str(skill_dir),
+                    created_by=creator.id,
+                )
+                db.add(row)
+                db.commit()
+                db.refresh(row)
+            except Exception:
+                db.rollback()
+                shutil.rmtree(skill_dir, ignore_errors=True)
+                raise
             return self._serialize(row)
 
     def update(self, skill_id: int, request: SkillUpdateRequest) -> dict[str, object]:
@@ -184,22 +196,35 @@ class SkillService:
                     skill_files[0], extract_root, creator, slug=slug, enabled=enabled,
                 )
 
-            # 多 skill 包：每个 SKILL.md 所在子目录视为独立 skill
+            # 多 skill 包：每个 SKILL.md 所在子目录视为独立 skill。
+            # 每个 skill 用独立的 extract_root 快照安装，避免「第一个 skill
+            # 把整个 extract_root 搬空、第二个落到空目录」；任何一个失败都
+            # 整体回滚，不留半装状态。
             results: list[dict[str, object]] = []
             errors: list[str] = []
             for skill_file in skill_files:
                 try:
-                    result = self._install_single_skill(
-                        skill_file, extract_root, creator, slug=None, enabled=enabled,
-                    )
+                    with tempfile.TemporaryDirectory(prefix="agenticos-skill-snapshot-") as snapshot_name:
+                        snapshot_root = Path(snapshot_name) / "src"
+                        shutil.copytree(extract_root, snapshot_root)
+                        snap_skill_file = snapshot_root / skill_file.relative_to(extract_root)
+                        result = self._install_single_skill(
+                            snap_skill_file, snapshot_root, creator, slug=None, enabled=enabled,
+                        )
                     results.append(result)
                 except Exception as exc:
                     meta, _ = self._read_skill_file(skill_file)
                     skill_name = str(meta.get("name") or skill_file.parent.name)
                     errors.append(f"{skill_name}: {exc}")
 
-            if errors and not results:
-                raise ValueError("以下技能执行失败：\n" + "\n".join(errors))
+            if errors or len(results) != len(skill_files):
+                # 数量不一致 = 至少有一个静默漏装，同样按整体失败处理
+                for installed in results:
+                    try:
+                        self.delete(int(installed["id"]))
+                    except Exception:  # noqa: BLE001 - 回滚尽最大努力
+                        _logger.warning("回滚 skill 安装失败: %s", installed.get("slug"), exc_info=True)
+                raise ValueError("以下技能执行失败：\n" + "\n".join(errors) or "多技能包安装不完整，已回滚")
 
             return results
 
@@ -216,28 +241,47 @@ class SkillService:
         meta, instruction = self._read_skill_file(skill_file)
         requested_slug = slug or str(meta.get("slug") or meta.get("name") or skill_file.parent.name)
 
+        # 只搬 skill_file.parent 子树 —— 原实现把 extract_root 下所有顶层
+        # 条目都搬进当前 skill 目录，多包场景第二个 skill 落到空目录。
+        # 当 SKILL.md 直接在 extract_root 根（单包）时，仍需搬整个根目录。
+        source_root = skill_file.parent
+        relative_root = source_root.relative_to(extract_root)
+        # skill 自身的相对路径（SKILL.md 直接在根时为空，否则是子目录名）
+        own_relative = Path() if relative_root == Path(".") else relative_root
+
         with self.session_factory() as db:
             unique_slug = self._unique_slug(db, requested_slug)
             entry_dir = self._storage_entry_dir(unique_slug)
             entry_dir.mkdir(parents=True, exist_ok=False)
 
-            for child in extract_root.iterdir():
-                shutil.move(str(child), str(entry_dir / child.name))
+            try:
+                if own_relative == Path():
+                    # 单包：把根目录所有顶层条目搬过来（保持原行为）
+                    for child in source_root.iterdir():
+                        shutil.move(str(child), str(entry_dir / child.name))
+                    stored_root = entry_dir
+                else:
+                    # 多包：只搬这个 skill 自己的子目录，保留其内部结构
+                    dest_root = entry_dir / own_relative
+                    dest_root.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(source_root), str(dest_root))
+                    stored_root = dest_root
 
-            relative_root = skill_file.parent.relative_to(extract_root)
-            stored_root = entry_dir / relative_root
-
-            row = SkillModel(
-                name=str(meta.get("name") or unique_slug),
-                slug=unique_slug,
-                description=str(meta.get("description") or ""),
-                enabled=enabled,
-                root_dir=str(stored_root),
-                created_by=creator.id,
-            )
-            db.add(row)
-            db.commit()
-            db.refresh(row)
+                row = SkillModel(
+                    name=str(meta.get("name") or unique_slug),
+                    slug=unique_slug,
+                    description=str(meta.get("description") or ""),
+                    enabled=enabled,
+                    root_dir=str(stored_root),
+                    created_by=creator.id,
+                )
+                db.add(row)
+                db.commit()
+                db.refresh(row)
+            except Exception:
+                db.rollback()
+                shutil.rmtree(entry_dir, ignore_errors=True)
+                raise
             return self._serialize(row)
 
     def delete(self, skill_id: int) -> None:
@@ -251,9 +295,11 @@ class SkillService:
             db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.skill_id == row.id))
             db.delete(row)
 
+            # 先 commit 再删目录：commit 失败时目录必须保留（原实现先 rmtree
+            # 再 commit，commit 失败 → DB 行还在但文件没了，技能变成空壳）。
+            db.commit()
             if entry_dir.exists():
                 shutil.rmtree(entry_dir, ignore_errors=True)
-            db.commit()
 
     def get_runtime_skills(self, skill_ids: list[int]) -> tuple[RuntimeSkill, ...]:
         if not skill_ids:
@@ -384,9 +430,14 @@ class SkillService:
         base_slug = _shared_slugify(base, fallback="skill")
         slug = base_slug
         index = 2
+        # 同时查 DB 与文件系统：孤儿目录（历史 commit 失败遗留）永久占着
+        # slug 的话，只看 DB 会生成同名目录导致 mkdir 失败；这里直接换一个。
+        storage_dir = self.storage_dir
         while True:
             existing = db.scalar(select(SkillModel).where(SkillModel.slug == slug))
-            if existing is None or existing.id == ignore_id:
+            db_conflict = existing is not None and existing.id != ignore_id
+            fs_conflict = (storage_dir / slug).exists()
+            if not db_conflict and not fs_conflict:
                 return slug
             slug = f"{base_slug}-{index}"
             index += 1

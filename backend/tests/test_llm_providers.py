@@ -1242,6 +1242,48 @@ def _usage_only_chunk():
     )
 
 
+def _empty_delta_chunk():
+    """无任何内容的空 delta 帧（provider 长连接/keepalive 常见）。"""
+    import types
+
+    return types.SimpleNamespace(
+        choices=[
+            types.SimpleNamespace(
+                delta=types.SimpleNamespace(
+                    content=None, reasoning_content=None, tool_calls=None
+                ),
+                finish_reason=None,
+            )
+        ],
+        usage=None,
+    )
+
+
+def _tool_arg_delta_chunk(fragment: str, *, call_id: str = "call_m", name: str = "calculate", index: int = 0):
+    """单个 tool_call 的增量 args 分片（首带 id/name，后续帧可省略）。"""
+    import types
+
+    return types.SimpleNamespace(
+        choices=[
+            types.SimpleNamespace(
+                delta=types.SimpleNamespace(
+                    content=None,
+                    reasoning_content=None,
+                    tool_calls=[
+                        types.SimpleNamespace(
+                            index=index,
+                            id=call_id,
+                            function=types.SimpleNamespace(name=name, arguments=fragment),
+                        )
+                    ],
+                ),
+                finish_reason=None,
+            )
+        ],
+        usage=None,
+    )
+
+
 def _mock_native_gateway(scripts, retry_attempts=1):
     """构造 mock 了 openai client 的 NativeLLMGateway。
 
@@ -1293,6 +1335,39 @@ def test_streaming_usage_reaches_the_caller():
     assert usage_frames and usage_frames[-1]["total_tokens"] == 3
 
 
+def test_usage_not_repeated_on_empty_delta_frames():
+    """usage-only 帧之后的空 delta 帧不得再携带 usage。
+
+    回归：旧实现用 `usage_final is not None` 判断，一旦拿到 usage 就永久
+    为真，后续每个空帧都重复 emit；下游 AIMessageChunk 合并会把所有帧的
+    usage 累加，造成重复计费。"""
+    import asyncio
+
+    gateway, _ = _mock_native_gateway([
+        [
+            _token_chunk("ok"),
+            _finish_chunk("stop"),
+            _usage_only_chunk(),
+            _empty_delta_chunk(),
+            _empty_delta_chunk(),
+        ],
+    ])
+
+    async def consume():
+        from app.services.agent.native.types import BaseMessage as Message
+
+        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
+        return [chunk async for chunk in stream]
+
+    chunks = asyncio.run(consume())
+    usage_frames = [c for c in chunks if c.usage]
+    assert len(usage_frames) == 1, f"usage 只应下发一次，实际 {len(usage_frames)} 帧：{[c.usage for c in chunks]}"
+    assert usage_frames[0].usage["total_tokens"] == 3
+    # 空帧必须被整帧跳过（无 content/tool/finish/usage 的帧不应到达下游）
+    empty_frames = [c for c in chunks if not (c.content or c.reasoning_content or c.tool_calls_delta or c.finish_reason or c.usage)]
+    assert not empty_frames
+
+
 def test_tool_calls_survive_nonstandard_finish_reason():
     """收尾帧给 stop 而非 tool_calls 时工具调用不能被丢弃（原缺陷修复语义）。"""
     import asyncio
@@ -1311,6 +1386,60 @@ def test_tool_calls_survive_nonstandard_finish_reason():
     complete = [c.tool_calls_complete for c in chunks if c.tool_calls_complete]
     assert complete, "工具调用被静默丢弃了"
     assert complete[0][0].function.name == "noop"
+
+
+def test_multiframe_tool_arguments_merge_without_duplication():
+    """多帧（>=3）tool_call 的 args 分片必须拼成完整 JSON，无重复。
+
+    回归：gateway 内部把 slot["arguments"] 累积从 str += 改成 list+join；
+    tool_calls_delta 的 wire 契约（携带全量累积快照）不能变，下游据此做
+    增量换算。最终 tool_calls_complete 里的 args 必须是完整且不重复的。
+    """
+    import asyncio
+    import json
+
+    full = {"expression": "12*34", "note": "中文&符号"}
+    full_text = json.dumps(full, ensure_ascii=False)
+    # 4 帧切片，逐帧下发（首帧带 id/name，后续帧省略 name 由网关保留）
+    cut1 = len(full_text) // 4
+    cut2 = len(full_text) // 2
+    cut3 = 3 * len(full_text) // 4
+    pieces = [full_text[:cut1], full_text[cut1:cut2], full_text[cut2:cut3], full_text[cut3:]]
+    assert len(pieces) >= 3 and all(pieces)
+
+    gateway, _ = _mock_native_gateway([
+        [_tool_arg_delta_chunk(p) for p in pieces] + [_finish_chunk("tool_calls")],
+    ])
+
+    async def consume():
+        from app.services.agent.native.types import BaseMessage as Message
+
+        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
+        return [chunk async for chunk in stream]
+
+    chunks = asyncio.run(consume())
+
+    # wire 契约：每帧 tool_calls_delta 携带的全量快照逐帧增长，末帧等于完整 JSON
+    snapshots = [
+        d["arguments"]
+        for c in chunks
+        for d in (c.tool_calls_delta or [])
+    ]
+    assert snapshots, "必须下发 tool_calls_delta"
+    assert snapshots[-1] == full_text
+    assert snapshots == [
+        full_text[:cut1],
+        full_text[:cut2],
+        full_text[:cut3],
+        full_text,
+    ]
+
+    # 最终聚合出的工具调用参数完整、无重复
+    complete = [c.tool_calls_complete for c in chunks if c.tool_calls_complete]
+    assert len(complete) == 1
+    call = complete[0][0]
+    assert call.function.name == "calculate"
+    assert call.function.arguments == full
 
 
 def test_stream_retries_when_nothing_emitted():

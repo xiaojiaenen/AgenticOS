@@ -47,7 +47,7 @@ CAP_AGENT_MANAGE = "agent:manage"                 # 建/改/删智能体与技�
 CAP_KNOWLEDGE_MANAGE = "knowledge:manage"         # 知识库管理
 CAP_ANNOUNCEMENT_MANAGE = "announcement:manage"   # 公告管理
 CAP_GALLERY_MANAGE = "gallery:manage"             # 作品库审核/下架
-CAP_WORKFLOW_MANAGE = "workflow:manage"           # 工作流编排
+# workflow 引擎已整体下线（2026-11-20），CAP_WORKFLOW_MANAGE 已移除。
 CAP_APPROVAL_REVIEW = "approval:review"           # 审批发布/外接系统调用
 
 CAP_USER_MANAGE = "user:manage"                   # 用户增删改、改角色
@@ -73,7 +73,6 @@ _OPERATOR = BASE_USER_CAPS | frozenset({
     CAP_KNOWLEDGE_MANAGE,
     CAP_ANNOUNCEMENT_MANAGE,
     CAP_GALLERY_MANAGE,
-    CAP_WORKFLOW_MANAGE,
     CAP_APPROVAL_REVIEW,
     CAP_AUDIT_VIEW,
 })
@@ -156,7 +155,6 @@ _MANAGEMENT_CAPS: frozenset[str] = frozenset({
     CAP_KNOWLEDGE_MANAGE,
     CAP_ANNOUNCEMENT_MANAGE,
     CAP_GALLERY_MANAGE,
-    CAP_WORKFLOW_MANAGE,
     CAP_APPROVAL_REVIEW,
     CAP_AUDIT_VIEW,
     CAP_USER_MANAGE,

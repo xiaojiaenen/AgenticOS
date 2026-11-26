@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import get_db, require_perm
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.models import (
@@ -51,7 +51,7 @@ def _find_user_by_email(db: Session, email: str) -> UserModel | None:
 
 
 @router.get("/roles")
-def list_roles(_: UserModel = Depends(require_admin)) -> dict[str, object]:
+def list_roles(_: UserModel = Depends(require_perm("user:edit"))) -> dict[str, object]:
     """可选角色清单 + 每个角色能做哪些事（后台用户管理的下拉框用它）。
 
     放在 `/{user_id}` 之前注册，否则会被当成 user_id="roles" 匹配走。
@@ -67,7 +67,7 @@ def list_users(
     search: str = Query(default="", max_length=120),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("user:edit")),
     db: Session = Depends(get_db),
 ) -> UserListResponse:
     statement = select(UserModel)
@@ -91,7 +91,7 @@ async def create_user(
     request: Request,
     payload: UserCreateRequest,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("user:create")),
 ) -> UserListItem:
     existing = _find_user_by_email(db, payload.email)
     if existing is not None:
@@ -161,7 +161,7 @@ async def create_user(
 @router.get("/{user_id}", response_model=UserListItem)
 def get_user(
     user_id: int,
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("user:edit")),
     db: Session = Depends(get_db),
 ) -> UserListItem:
     user = db.get(UserModel, user_id)
@@ -176,7 +176,7 @@ def update_user(
     payload: UserUpdateRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("user:edit")),
 ) -> UserListItem:
     user = db.get(UserModel, user_id)
     if user is None:
@@ -265,7 +265,7 @@ def update_user_status(
     payload: UserStatusUpdateRequest,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("user:edit")),
 ) -> UserListItem:
     user = db.get(UserModel, user_id)
     if user is None:
@@ -289,7 +289,7 @@ def delete_user(
     user_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("user:delete")),
 ) -> None:
     user = db.get(UserModel, user_id)
     if user is None:

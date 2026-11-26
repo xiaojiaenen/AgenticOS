@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import require_perm, get_db
 from app.core.timezone import APP_TIMEZONE, app_today, to_app_timezone
 from app.db.models import AgentSessionModel, AgentUsageEventModel, UserModel
 from app.services.cache_service import get_cache_service
@@ -174,7 +174,7 @@ def _compute_detail(db: Session, user_id: int, days: int) -> dict | None:
 @router.get("")
 async def list_user_analytics(
     days: int = Query(default=14, ge=1, le=90),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("audit:stats")),
     db: Session = Depends(get_db),
 ) -> dict:
     rows = await asyncio.to_thread(_compute_list, db, days)
@@ -189,7 +189,7 @@ async def list_user_analytics(
 async def get_user_analytics(
     user_id: int,
     days: int = Query(default=30, ge=1, le=90),
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("audit:stats")),
     db: Session = Depends(get_db),
 ) -> dict:
     detail = await asyncio.to_thread(_compute_detail, db, user_id, days)

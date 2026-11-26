@@ -54,6 +54,24 @@ class UserModel(Base):
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
 
+class UserRoleModel(Base):
+    """用户 ↔ 角色 多对多关联（支持一个用户拥有多个角色）。
+
+    ``users.role`` 保留为「主角色」以兼容现有代码与旧数据；本表存**额外**
+    角色。判定时取主角色 + 本表所有角色的权限并集。这样：
+    - 存量用户不迁移（主角色照常工作）；
+    - 新 UI 给用户加角色时往本表写，不影响主角色字段。
+    """
+
+    __tablename__ = "user_roles"
+    __table_args__ = (UniqueConstraint("user_id", "role_slug", name="uq_user_roles"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role_slug: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
 class UserEmailCredentialsModel(Base):
     __tablename__ = "user_email_credentials"
 
@@ -187,6 +205,9 @@ class AgentProfileModel(Base):
     # 内置智能体被管理员改过的时间戳。非空 = 尊重现有配置，启动种子不再回写
     # 默认 prompt / 工具开关；清空（一键还原）后会重新跟随内置默认值。
     customized_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    # 智能体绑定的知识库白名单（JSON 数组 of kb_id）。空 = 不限制（按使用者
+    # 权限检索全部可见库）；非空 = 只检索这些库（仍需通过可见性过滤）。
+    knowledge_base_ids_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     max_steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     # 所有者：NULL = 平台内置（管理员可改、不可删）；有值 = 该用户自建，仅本人与管理员可管理
@@ -385,7 +406,24 @@ class AgentMessageModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)
-    message_json: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT, "mysql"))
+    # ── 结构化列（阶段一）：消息本体可查询、可分页、可统计 ──
+    # message_id 是 BaseMessage.id（稳定 UUID）。此列是普通索引（非唯一）：
+    # 重复写入由应用层 session_storage.message_signature 去重（tool 结果按
+    # tool_call_id 锚定，其余按 role+工具调用 id+正文哈希），不是靠 DB 唯一
+    # 约束。刻意不加唯一索引 —— 存量库可能有重复 message_id，且 NULL 语义
+    # 跨方言不一致，加唯一约束的迁移风险 > 收益。
+    message_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    role: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    content_text: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
+    content_parts_json: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
+    tool_calls_json: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
+    tool_call_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reasoning_text: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # 兼容灰度：message_json 保留一段时间，读路径在结构化列缺失时回退
+    message_json: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
 
 
@@ -845,9 +883,10 @@ class KnowledgeBaseModel(Base):
     slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     description: Mapped[str] = mapped_column(Text, default="")
     purpose: Mapped[str] = mapped_column(Text, default="")  # 目标声明：定义知识库关注什么、不关注什么
-    scope: Mapped[str] = mapped_column(String(20), default="org", index=True)  # org / team / personal
+    # 团队（team）作用域已整体下线：组织模型删除后 team 共享从未落地。
+    # scope 仅保留 org / personal；visibility 控制公开或私有。
+    scope: Mapped[str] = mapped_column(String(20), default="org", index=True)  # org / personal
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    team_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)  # scope=team 时关联的团队
     visibility: Mapped[str] = mapped_column(String(20), default="public")  # public / restricted / private
     settings_json: Mapped[str] = mapped_column(Text, default="{}")  # 编译参数（LLM 模型、chunk 大小等）
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
@@ -1005,8 +1044,10 @@ class KBAccessControlModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     knowledge_base_id: Mapped[int] = mapped_column(ForeignKey("knowledge_bases.id"), index=True)
-    principal_type: Mapped[str] = mapped_column(String(10))  # user / team
-    principal_id: Mapped[int] = mapped_column(Integer, index=True)  # user_id 或 team_id
+    # team 主体已下线：principal_type 实际只有 'user'（保留字段是为了兼容
+    # 唯一约束与历史数据，不再支持 team 授权）。
+    principal_type: Mapped[str] = mapped_column(String(10))  # user
+    principal_id: Mapped[int] = mapped_column(Integer, index=True)  # user_id
     role: Mapped[str] = mapped_column(String(20), default="viewer")  # admin / editor / viewer
     granted_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
@@ -1030,6 +1071,9 @@ class RoleModel(Base):
     # 内置角色不允许删除，避免内置策略失去主体
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    # 该角色启用的权限点 key 列表（JSON 数组）。null = 用 permission_catalog
+    # 里内置角色的默认展开（兼容存量）；非 null = 管理员在矩阵 UI 自定义。
+    permissions_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 

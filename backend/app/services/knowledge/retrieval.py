@@ -9,8 +9,8 @@ PG trgm / Python BM25 三路 + 手写 RRF）已整体退役：
   通过语料文本重复计入，与旧实现的加权口径等价。
 - 向量：``KBVectorRetriever``（LlamaIndex ``BaseRetriever``）—— 段级
   embedding 余弦 + 页级 max 聚合；库里无切片时自动退回页级向量。
-- 融合：``QueryFusionRetriever``（``RECIPROCAL_RANK`` 模式，即 RRF k=60，
-  与旧实现同一论文参数）；``num_queries=1`` 不引入 LLM 查询改写。
+- 融合：RRF k=60（与旧实现同一论文参数），直接复用两路检索的排名，
+  不引入 LLM 查询改写、不重复检索。
 - 重排：启发式四信号（``rerank.score_result``）+ FlashRank cross-encoder
   精排（``rerank.rerank_scores``）。
 
@@ -40,19 +40,11 @@ from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from typing import Optional
 
-from llama_index.core.retrievers import BaseRetriever, QueryFusionRetriever
-from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
+from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 from llama_index.retrievers.bm25 import BM25Retriever
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
-
-# QueryFusionRetriever 在 llm=None 时读取全局 Settings.llm（懒加载默认 OpenAI）。
-# 本项目的融合是纯 RRF（num_queries=1），永远不用 LLM —— 置 None 阻断懒加载，
-# 否则未装 llama-index-llms-openai 的环境一进融合就 ImportError。
-from llama_index.core import Settings as _LlamaSettings
-
-_LlamaSettings.llm = None
 
 from app.core.config import get_settings
 from app.db.models import KBChunkModel, KBWikiPageModel, KnowledgeBaseModel, UserModel
@@ -103,6 +95,8 @@ def record_search_metrics(
     latency_ms: int,
     kb_ids: list[int],
     matched_channels: list[str],
+    stages_ms: dict[str, int] | None = None,
+    cache_hit: bool | None = None,
 ) -> None:
     """每次对外检索结束时记录一条采样（search() 末尾调用）。"""
     sample = {
@@ -112,6 +106,8 @@ def record_search_metrics(
         "latency_ms": latency_ms,
         "kb_ids": list(kb_ids)[:10],
         "channels": matched_channels,
+        "stages_ms": dict(stages_ms or {}),
+        "cache_hit": cache_hit,
     }
     with _retrieval_metrics_lock:
         _retrieval_metrics.appendleft(sample)
@@ -148,12 +144,31 @@ def get_retrieval_metrics() -> dict:
         {"query": s["query_preview"], "ts": s["ts"], "kb_ids": s["kb_ids"]}
         for s in samples[:50] if s["result_count"] == 0
     ]
+    def _stage_pct(name: str, p: float) -> int | None:
+        values = sorted(
+            s["stages_ms"][name] for s in samples
+            if name in (s.get("stages_ms") or {})
+        )
+        return _pct(values, p)
+
+    cached = [s for s in samples if s.get("cache_hit") is True]
     return {
         "window": total,
         "hit_rate": round(len(hits) / total, 3),
         "empty_rate": round((total - len(hits)) / total, 3),
         "latency_ms_p50": _pct(latencies, 0.50),
         "latency_ms_p95": _pct(latencies, 0.95),
+        "stages_ms_p50": {
+            name: _stage_pct(name, 0.50)
+            for name in ("bm25", "vector", "rerank")
+            if _stage_pct(name, 0.50) is not None
+        },
+        "stages_ms_p95": {
+            name: _stage_pct(name, 0.95)
+            for name in ("bm25", "vector", "rerank")
+            if _stage_pct(name, 0.95) is not None
+        },
+        "bm25_cache_hit_rate": round(len(cached) / total, 3) if total else None,
         "channels": channels,
         "no_result_queries": no_result,
     }
@@ -240,21 +255,21 @@ def can_view_knowledge_base(
 
     - admin：全部可见
     - visibility=private：仅 owner/admin
+    - visibility=restricted：仅 owner/admin（其他用户须走显式 ACL 授权，
+      由 require_kb_access 的 explicit_role 判定，这里作为兜底拒绝）
     - scope=personal：仅 owner/admin
-    - scope=team：owner 恒可见；非 owner 仅 public（团队 ACL 未落地前的保守策略）
-    - scope=org / 非 private：可见
+    - scope=org + visibility=public：可见
+
+    team 作用域已随组织模型下线（字段删除、判定分支移除）；存量库若仍有
+    scope='team' 的历史值，按 org 处理（公开可见），不会误锁住已有数据。
     """
     if is_admin:
         return True
-    if kb.visibility == "private":
+    if kb.visibility in ("private", "restricted"):
         return user_id is not None and kb.owner_id == user_id
     if kb.scope == "personal":
         return user_id is not None and kb.owner_id == user_id
-    if kb.scope == "team":
-        if user_id is not None and kb.owner_id == user_id:
-            return True
-        return kb.visibility == "public"
-    # org 或其他
+    # org（含历史 team 值）
     return True
 
 
@@ -527,6 +542,7 @@ class KnowledgeRetrieval:
             return []
 
         _t0 = time.monotonic()
+        _stages: dict[str, int] = {}
         logger.info("Searching knowledge base: query='%s...'", query[:50])
 
         # 获取可见的知识库
@@ -537,16 +553,23 @@ class KnowledgeRetrieval:
             return []
 
         # 两路检索：BM25（字面，bm25s）+ 向量（语义，段级）—— 均为 LlamaIndex 检索器
+        _t1 = time.monotonic()
         bm25_hits = self._bm25_search(query, visible_kb_ids, page_type)
+        _t2 = time.monotonic()
+        _stages["bm25"] = int((_t2 - _t1) * 1000)
         vector_hits, chunk_snippets = self._vector_search(query, visible_kb_ids, page_type)
+        _t3 = time.monotonic()
+        _stages["vector"] = int((_t3 - _t2) * 1000)
 
         if not bm25_hits and not vector_hits:
             return []
 
-        # 候选集：QueryFusionRetriever 的 RRF 排序，两路都命中的页面天然靠前，
-        # 用它决定「取哪些页」（LLamaIndex 内建 RRF，k=60 与旧实现一致）
+        # 候选集：RRF(k=60) 决定「取哪些页」，两路都命中的页面天然靠前。
+        # 直接复用上面两路检索的排名结果 —— 旧实现在这里又跑一遍 BM25+向量，
+        # 单次 search 实际做了 4 次检索（冷启动重复建索引，P95 主因）。
         candidate_ids = self._fuse_candidates(
             query, visible_kb_ids, page_type, max_results * 3,
+            bm25_hits=bm25_hits, vector_hits=vector_hits,
         )
 
         # 粗排依据：归一化相关度（RRF 只负责选候选，不参与对外 score）
@@ -574,6 +597,7 @@ class KnowledgeRetrieval:
                 channels=item.matched_by,
             )
         self._apply_flashrank_rerank(query, results)
+        _stages["rerank"] = int((time.monotonic() - _t3) * 1000)
 
         # 相关度优先，同分时权威性高的靠前
         results.sort(
@@ -592,6 +616,8 @@ class KnowledgeRetrieval:
             latency_ms=int((time.monotonic() - _t0) * 1000),
             kb_ids=visible_kb_ids,
             matched_channels=sorted({c for r in final for c in r.matched_by}),
+            stages_ms=_stages,
+            cache_hit=_RETRIEVER_CACHE.get(_RetrieverCache.make_key(visible_kb_ids, page_type)) is not None,
         )
         return final
 
@@ -786,53 +812,31 @@ class KnowledgeRetrieval:
         knowledge_base_ids: list[int],
         page_type: Optional[str],
         top_k: int,
+        *,
+        bm25_hits: Optional[list[tuple[int, float]]] = None,
+        vector_hits: Optional[list[tuple[int, float]]] = None,
     ) -> list[int]:
-        """QueryFusionRetriever（RECIPROCAL_RANK / RRF k=60）选候选页。
+        """RRF(k=60) 选候选页。
 
         只负责「取哪些页」——RRF 排名分不参与对外 score（见模块 docstring）。
         某一通道无候选时，融合退化为单通道排序。
+
+        优先复用 ``search()`` 已经拿到的两路排名（``bm25_hits`` / ``vector_hits``），
+        避免重复检索。独立调用（如回归测试）未传时才自行检索，保持向后兼容。
         """
-        retrievers: list[BaseRetriever] = []
+        k = 60.0
+        if bm25_hits is None:
+            bm25_hits = self._bm25_search(query, knowledge_base_ids, page_type)
+        if vector_hits is None:
+            vector_hits, _ = self._vector_search(query, knowledge_base_ids, page_type)
 
-        cache_key = _RetrieverCache.make_key(knowledge_base_ids, page_type)
-        entry = _RETRIEVER_CACHE.get(cache_key)
-        if entry is None:
-            built = self._build_bm25_retriever(knowledge_base_ids, page_type)
-            if built is not None:
-                entry = _RetrieverEntry(time.monotonic(), built[0], built[1])
-                if built[1] <= _CACHE_MAX_DOCS:
-                    _RETRIEVER_CACHE.put(cache_key, entry)
-        if entry is not None:
-            retrievers.append(KBBM25Retriever(entry.retriever, self))
+        fused_scores: dict[int, float] = {}
+        for hits in (bm25_hits, vector_hits):
+            for rank, (page_id, _score) in enumerate(hits):
+                fused_scores[page_id] = fused_scores.get(page_id, 0.0) + 1.0 / (rank + k)
 
-        vector_channel = KBVectorRetriever(self.db, knowledge_base_ids, page_type)
-        try:
-            if get_knowledge_embedder().is_enabled():
-                retrievers.append(vector_channel)
-        except Exception:  # noqa: BLE001 —— embedding 服务故障时只走 BM25
-            pass
-
-        if not retrievers:
-            return []
-        if len(retrievers) == 1:
-            # 单通道：直接用该通道排序，RRF 无第二路可融
-            nodes = retrievers[0].retrieve(QueryBundle(query_str=query))
-            return [int(n.metadata["page_id"]) for n in nodes]
-
-        fusion = QueryFusionRetriever(
-            retrievers,
-            mode=FUSION_MODES.RECIPROCAL_RANK,
-            num_queries=1,  # 不做 LLM 查询改写，纯双路 RRF
-            similarity_top_k=top_k,
-            use_async=False,  # 检索常在同步/异步混合上下文调用，避免事件Loop嵌套
-        )
-        fused = fusion.retrieve(QueryBundle(query_str=query))
-        candidates: list[int] = []
-        for node in fused:
-            pid = int(node.metadata.get("page_id", 0) or 0)
-            if pid and pid not in candidates:
-                candidates.append(pid)
-        return candidates
+        ordered = sorted(fused_scores.items(), key=lambda item: item[1], reverse=True)
+        return [page_id for page_id, _ in ordered[:top_k]]
 
     def _tokenize(self, text: str) -> list[str]:
         """分词入口：委托 tokenizer 模块（jieba 词级分词）。

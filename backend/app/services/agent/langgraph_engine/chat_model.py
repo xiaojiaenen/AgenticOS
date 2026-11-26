@@ -284,8 +284,10 @@ class GatewayChatModel(BaseChatModel):
 
         response = await self.gateway.generate(messages=native_msgs, tools=tools, stream=True)
         # gateway.stream=True 返回 AsyncIterator[LLMResponseChunk]
-        # 已发出的累积 args 快照（index → args），用于累积→增量换算
-        _tc_emitted: dict[int, str] = {}
+        # 已发出的累积 args 长度（index → len），用于累积→增量换算。
+        # 只存长度而非整段快照：旧实现每帧存两份全量 args、逐帧做全前缀比较+
+        # 切片，长 JSON 参数下是 O(N²)。这里只记已发出长度，增量取 call_args[n:]。
+        _tc_emitted: dict[int, int] = {}
         usage_emitted = False
         async for chunk in response:
             content = chunk.content or ""
@@ -317,8 +319,8 @@ class GatewayChatModel(BaseChatModel):
                         call_args = raw_args or ""
                         call_index = idx
 
-                    prev = _tc_emitted.get(call_index)
-                    if prev is None:
+                    emitted_len = _tc_emitted.get(call_index)
+                    if emitted_len is None:
                         # 首帧：全量 id/name + 已累积的 args（此前帧未发出过）
                         tool_call_chunks.append(
                             {
@@ -328,9 +330,11 @@ class GatewayChatModel(BaseChatModel):
                                 "index": call_index,
                             }
                         )
-                        _tc_emitted[call_index] = call_args
+                        _tc_emitted[call_index] = len(call_args)
                     else:
-                        new_suffix = call_args[len(prev):] if call_args.startswith(prev) else call_args
+                        # 累积快照只增不减：新后缀 = 当前快照去掉已发出前缀。
+                        # provider 回退（长度变短）时兜底重发整段。
+                        new_suffix = call_args[emitted_len:] if len(call_args) >= emitted_len else call_args
                         if not new_suffix:
                             continue
                         tool_call_chunks.append(
@@ -341,15 +345,22 @@ class GatewayChatModel(BaseChatModel):
                                 "index": call_index,
                             }
                         )
-                        _tc_emitted[call_index] = call_args
+                        _tc_emitted[call_index] = len(call_args)
 
             usage = getattr(chunk, "usage", None)
             usage_metadata = None
-            if isinstance(usage, dict) and usage.get("total_tokens"):
+            if isinstance(usage, dict) and any(
+                usage.get(k) for k in ("total_tokens", "input_tokens", "output_tokens", "prompt_tokens", "completion_tokens")
+            ):
+                # gateway 产出 prompt_tokens/completion_tokens，Anthropic 风格网关
+                # 产出 input_tokens/output_tokens；两种键名都要能落到 usage_metadata，
+                # 否则分项恒为 0（预算/计费/看板全失真）。
+                input_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
+                output_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
                 usage_metadata = {
-                    "input_tokens": int(usage.get("input_tokens") or 0),
-                    "output_tokens": int(usage.get("output_tokens") or 0),
-                    "total_tokens": int(usage.get("total_tokens") or 0),
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": int(usage.get("total_tokens") or input_tokens + output_tokens),
                 }
                 additional["usage"] = usage
 

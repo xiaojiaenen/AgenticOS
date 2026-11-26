@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_settings, require_admin
+from app.api.deps import get_db, get_settings, require_perm
 from app.core.config import Settings
 from app.db.models import UserModel
 from app.services import audit_service
@@ -85,7 +85,7 @@ class LdapTestRequest(LdapConfigPayload):
 
 @router.get("/ldap", response_model=LdapConfigResponse)
 def get_ldap_setting(
-    _: UserModel = Depends(require_admin),
+    _: UserModel = Depends(require_perm("settings:edit")),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> LdapConfigResponse:
@@ -97,7 +97,7 @@ def get_ldap_setting(
 def update_ldap_setting(
     payload: LdapConfigPayload,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("settings:edit")),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> LdapConfigResponse:
@@ -125,7 +125,7 @@ def update_ldap_setting(
 async def test_ldap_connection(
     payload: LdapTestRequest,
     http_request: Request,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_perm("settings:edit")),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:

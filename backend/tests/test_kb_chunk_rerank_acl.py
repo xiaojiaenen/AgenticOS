@@ -580,10 +580,17 @@ def test_embedder_cools_down_after_transport_failure(monkeypatch):
     from app.services.knowledge import embedder as embedder_mod
 
     monkeypatch.setenv("KNOWLEDGE_VECTOR_ENABLED", "true")
+    # 本用例测的是「远程 HTTP 失败 → 冷却」；必须显式清空本地模型配置，
+    # 否则开发机 .env 里配的本地模型会优先于远程，根本不会走 httpx.Client。
+    monkeypatch.setenv("KNOWLEDGE_EMBEDDING_LOCAL_MODEL", "")
     monkeypatch.setenv("KNOWLEDGE_EMBEDDING_BASE_URL", "https://api.deepseek.com")
     monkeypatch.setenv("KNOWLEDGE_EMBEDDING_API_KEY", "sk-x")
     monkeypatch.setenv("KNOWLEDGE_EMBEDDING_COOLDOWN_SECONDS", "60")
     get_settings.cache_clear()
+    try:
+        embedder_mod.reset_knowledge_embedder()
+    except AttributeError:
+        pass
 
     calls = {"n": 0}
 
