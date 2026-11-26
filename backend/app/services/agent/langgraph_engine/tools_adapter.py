@@ -294,7 +294,20 @@ def _convert_tool(tool: Any, approval_policy: EngineApprovalPolicy | None, rejec
                     _validate_modified_arguments(tool, kwargs)
                 except ValueError as exc:
                     return _serialize_output({"ok": False, "error": str(exc)})
-        result = await _invoke_handler(tool, kwargs)
+        try:
+            result = await _invoke_handler(tool, kwargs)
+        except Exception as exc:  # noqa: BLE001 —— 工具抛异常必须转成 tool_error，不能冒泡
+            # 工具 handler（如 read_text_file 的 FileNotFoundError、write_text_file
+            # 的 IsADirectoryError）直接 raise 时，若让异常冒泡到 graph 顶层，会被
+            # engine.py 的 except Exception 转成**致命 error 事件**：流在 tool_calls
+            # 之后直接断掉、不再发 done，前端 isStreaming 卡住、产物侧栏不刷新。
+            # 正确语义与「工具返回 {"ok": False}」一致：把异常包成错误结果交回 LLM，
+            # 由它决定重试/改路径/告知用户，流得以正常走到 done。
+            _logger.warning("tool handler raised: %s: %s", tool.name, exc)
+            result = {
+                "ok": False,
+                "error": {"type": type(exc).__name__, "message": str(exc)},
+            }
         serialized = _serialize_output(result)
         # 工具输出截断（原 ToolExecutor 语义移植）
         text, was_truncated = _truncate_output(serialized, MAX_TOOL_OUTPUT_CHARS)

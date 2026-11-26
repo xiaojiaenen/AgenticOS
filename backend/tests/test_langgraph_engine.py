@@ -237,6 +237,37 @@ def test_tool_error_reported_via_tool_error_event():
     assert "炸了" in errors[0].data["message"]
 
 
+def test_tool_raises_exception_is_tool_error_not_fatal():
+    """工具 handler 直接 raise（如 read_text_file 的 FileNotFoundError）不得
+    冒泡成致命 error——否则流在 tool_calls 后直接断、不再发 done，前端
+    isStreaming 卡住、产物侧栏不刷新。应转成 tool_error 让 LLM 继续。"""
+    registry = ToolRegistry()
+
+    @registry.tool(name="raiser", display_name="抛异常工具", description="总是抛异常")
+    def raiser() -> dict:
+        raise FileNotFoundError("文件不存在: missing.txt")
+
+    policy = EngineApprovalPolicy(auto_approve_tools={"raiser"}, approval_mode="auto")
+    script = [
+        [
+            _chunk(tool_calls_delta=[_delta(name="raiser", args={})], finish_reason="tool_calls"),
+            _chunk(tool_calls_complete=[_wuwei_tool_call(name="raiser", args={})], finish_reason="tool_calls"),
+        ],
+        [_chunk("抱歉，文件不存在，我换个路径。", finish_reason="stop")],
+    ]
+    agent = LangGraphAgent(
+        llm=FakeGateway(script), tools=registry, default_system_prompt="t", default_max_steps=5, approval_policy=policy
+    )
+    _, events = asyncio.run(_collect(agent, "raiser"))
+    errors = _by_type(events, "tool_error")
+    fatal = _by_type(events, "error")
+    assert len(errors) == 1, "抛异常的工具必须产生 tool_error 事件"
+    assert "文件不存在" in errors[0].data["message"]
+    assert not fatal, "工具抛异常不得产生致命 error 事件（会导致流断裂、无 done）"
+    # LLM 在收到工具错误后继续输出了最终答复，流正常收尾
+    assert any(getattr(e, "type", None) == "done" for e in events), "流必须正常走到 done"
+
+
 # ── 场景 3：审批（LenientHitl 语义移植）───────────────────────────────
 
 

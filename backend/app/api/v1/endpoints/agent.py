@@ -490,11 +490,14 @@ async def get_session_messages(
 # 以及模型直接写到工作区根目录的 html 产物（如 write_text_file(index.html)）。
 # 注意：正则必须禁止 `/`、`..` 等路径成分，路径穿越由后续的 resolve/relative_to 兜底。
 _IMAGE_OUTPUT_RE = re.compile(
-    r"^[A-Za-z0-9._-]+\.(?:csv|xlsx|json|txt|md|html?|png|jpe?g|webp|gif)$", re.I
+    # css/js/svg/字体：html 产物用相对路径引用同目录资源（<link href="style.css">），
+    # 前端预览会经本端点把资源抓回内联进 srcDoc，所以必须放行这些扩展名。
+    r"^[A-Za-z0-9._-]+\.(?:csv|xlsx|json|txt|md|html?|png|jpe?g|webp|gif|svg|css|js|mjs|woff2?|ttf|eot|ico)$",
+    re.I,
 )
 
 # 图片内联给 <img> 用，其余类型作为附件下载。
-_INLINE_OUTPUT_EXTENSIONS = frozenset({"png", "jpg", "jpeg", "webp", "gif"})
+_INLINE_OUTPUT_EXTENSIONS = frozenset({"png", "jpg", "jpeg", "webp", "gif", "svg", "ico"})
 
 # 显式覆盖 mimetypes 在部分系统上识别不全的类型（xlsx 尤其常见）。
 _OUTPUT_MEDIA_TYPES = {
@@ -505,6 +508,15 @@ _OUTPUT_MEDIA_TYPES = {
     "md": "text/markdown",
     "html": "text/html",
     "htm": "text/html",
+    "css": "text/css",
+    "js": "application/javascript",
+    "mjs": "application/javascript",
+    "svg": "image/svg+xml",
+    "woff": "font/woff",
+    "woff2": "font/woff2",
+    "ttf": "font/ttf",
+    "eot": "application/vnd.ms-fontobject",
+    "ico": "image/x-icon",
 }
 
 
