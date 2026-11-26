@@ -41,41 +41,74 @@ interface OrderedAssistantContentProps {
 }
 
 const TOOL_STATUS_META: Record<ToolCall['status'], { label: string; className: string }> = {
-  pending: { label: '等待中', className: 'bg-slate-100 text-slate-600' },
-  approval_required: { label: '待审批', className: 'bg-amber-100 text-amber-700' },
-  approved: { label: '已批准', className: 'bg-sky-100 text-sky-700' },
-  responded: { label: '已代答', className: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' },
-  rejected: { label: '已拒绝', className: 'bg-rose-100 text-rose-600' },
-  success: { label: '已完成', className: 'bg-emerald-100 text-emerald-700' },
-  error: { label: '失败', className: 'bg-rose-100 text-rose-600' },
+  pending: { label: '等待中', className: 'bg-[var(--surface-3)] text-[var(--muted-foreground)]' },
+  approval_required: { label: '待审批', className: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300' },
+  approved: { label: '已批准', className: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300' },
+  responded: { label: '已代答', className: 'bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300' },
+  rejected: { label: '已拒绝', className: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300' },
+  success: { label: '已完成', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' },
+  error: { label: '失败', className: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300' },
 };
 
 /**
  * 思考组：ReAct 多轮会产生多段思考，这里合并为一个可折叠容器，
  * 内部按发生顺序分段展示——既保留时序，又避免一堆碎折叠条。
  */
-const ReasoningGroup: React.FC<{ segments: string[] }> = ({ segments }) => (
-  <details className="group my-1.5 rounded-xl px-3 py-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)]/60 [&_summary::-webkit-details-marker]:hidden">
-    <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
-      <BrainCircuit size={13} />
-      <span>思考过程{segments.length > 1 ? ` (${segments.length})` : ''}</span>
-      <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
-    </summary>
-    <div className="mt-2 max-h-40 space-y-2 overflow-y-auto border-t border-[var(--border-subtle)] pt-2">
-      {segments.map((text, index) => (
-        <p
-          key={index}
-          className="whitespace-pre-wrap break-words text-xs leading-relaxed italic"
-        >
-          {text}
-        </p>
-      ))}
-    </div>
-  </details>
-);
+const ReasoningGroup: React.FC<{ segments: string[]; isStreaming?: boolean }> = ({ segments, isStreaming }) => {
+  const ref = React.useRef<HTMLDetailsElement>(null);
+  // 流式期间强制展开且剥夺折叠权：思考段落还在增长，折叠会让视口反复跳动；
+  // 结束后收起成一行。这里用 ref 显式同步 open —— React 对 open={undefined}
+  // 不会移除 DOM 上已有的 open 属性（受控属性 true→undefined 时不清理），
+  // 单靠 prop 会让 details 在流式结束后一直保持展开。effect 只在 isStreaming
+  // 真正变化时写入，思考段落增长等其它重渲染不碰 open，保留用户手动展开意图。
+  React.useLayoutEffect(() => {
+    if (ref.current) ref.current.open = Boolean(isStreaming);
+  }, [isStreaming]);
+
+  return (
+    <details
+      ref={ref}
+      className={cn(
+        'group my-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]/50 px-3 py-2 text-[var(--muted-foreground)] transition-colors [&_summary::-webkit-details-marker]:hidden',
+        isStreaming ? '[&_summary]:cursor-default' : 'hover:bg-[var(--surface-2)]',
+      )}
+    >
+      <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-medium tracking-normal">
+        <span className="flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-medium)] bg-[var(--surface-1)]">
+          <BrainCircuit size={11} />
+        </span>
+        <span>{isStreaming ? '正在思考' : `思考过程 · ${segments.length} 段`}</span>
+        {isStreaming ? (
+          <span className="ml-1 flex items-center gap-[3px]" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="thinking-dot h-[3px] w-[3px] rounded-full bg-[var(--muted-foreground)]"
+                style={{ animationDelay: `${i * 0.15}s` }}
+              />
+            ))}
+          </span>
+        ) : (
+          <ChevronDownIcon size={12} className="ml-auto shrink-0 transition-transform duration-200 group-open:-rotate-180" />
+        )}
+      </summary>
+      <div className="reasoning-body grid grid-rows-[1fr] transition-[grid-template-rows] duration-200 ease-[cubic-bezier(.19,1,.22,1)]">
+        <div className="overflow-hidden">
+          <div className="mt-2 space-y-2 border-t border-[var(--border-subtle)] pt-2">
+            {segments.map((text, index) => (
+              <p key={index} className="whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.7] text-[var(--muted-foreground)]">
+                {text}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+    </details>
+  );
+};
 
 /** 就地渲染的工具调用块：紧凑单行 + 可展开详情；待审批时高亮 */
-const ToolBlock: React.FC<{ tool: ToolCall; isAdmin: boolean }> = ({ tool, isAdmin }) => {
+const ToolBlock: React.FC<{ tool: ToolCall; isAdmin: boolean; sessionId?: string }> = ({ tool, isAdmin, sessionId }) => {
   const meta = TOOL_STATUS_META[tool.status] ?? TOOL_STATUS_META.pending;
   const isPendingApproval = tool.status === 'approval_required';
   const labels = useToolLabels();
@@ -86,18 +119,18 @@ const ToolBlock: React.FC<{ tool: ToolCall; isAdmin: boolean }> = ({ tool, isAdm
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        'group my-2 overflow-hidden rounded-2xl border px-3 py-2 transition-colors [&_summary::-webkit-details-marker]:hidden',
+        'group my-2 overflow-hidden rounded-lg border px-3 py-2 transition-colors [&_summary::-webkit-details-marker]:hidden',
         isPendingApproval
-          ? 'border-amber-300 bg-amber-50/80'
+          ? 'border-amber-300 bg-amber-50/80 dark:bg-amber-500/10'
           : 'border-[var(--border-subtle)] bg-[var(--surface-2)]/50 hover:bg-[var(--surface-2)]',
       )}
     >
       <summary className="flex cursor-pointer select-none items-center gap-2">
         <WrenchIcon size={12} className={cn('shrink-0', isPendingApproval ? 'text-amber-600' : 'text-[var(--muted-foreground)]')} />
-        <span className="text-[11px] font-semibold tracking-wide text-[var(--foreground)]">
+        <span className="text-xs font-medium text-[var(--foreground)]">
           {displayName}
         </span>
-        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', meta.className)}>
+        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', meta.className)}>
           {meta.label}
         </span>
         {tool.result && !isAdmin && (
@@ -105,19 +138,60 @@ const ToolBlock: React.FC<{ tool: ToolCall; isAdmin: boolean }> = ({ tool, isAdm
             {tool.result}
           </span>
         )}
-        <ChevronDownIcon size={12} className="ml-auto shrink-0 text-[var(--muted-foreground)] transition-transform duration-300 group-open:-rotate-180" />
+        <ChevronDownIcon size={12} className="ml-auto shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 group-open:-rotate-180" />
       </summary>
       <div className="mt-2 border-t border-[var(--border-subtle)] pt-2 text-[11px] leading-relaxed text-[var(--muted-foreground)]">
         {tool.reason || tool.instruction ? (
           <p className="mb-2">{tool.reason || tool.instruction}</p>
         ) : null}
         {tool.result ? (
-          <ToolResultPreview result={tool.result} isError={tool.status === 'error'} />
+          <ToolResultPreview result={tool.result} isError={tool.status === 'error'} sessionId={sessionId} />
         ) : (
           <p>等待工具返回内容…</p>
         )}
       </div>
     </motion.details>
+  );
+};
+
+/**
+ * 连续同名工具组：Agent 常连续调用几十次 read_file / grep，逐条渲染会堆成
+ * "工具墙"（截图里 20+ 行 read_file 把正文挤到屏幕外）。参考 Cursor：
+ * 默认折叠成一行「读取文件 ×20」，展开后仍逐条可见，不丢信息。
+ * 流式期间强制展开（与思考组一致，避免视口跳动）。
+ */
+const ToolGroup: React.FC<{ tools: ToolCall[]; isAdmin: boolean; isStreaming: boolean; sessionId?: string }> = ({ tools, isAdmin, isStreaming, sessionId }) => {
+  const labels = useToolLabels();
+  const name = tools[0].name;
+  const display = toolLabel(name, labels);
+  const failed = tools.filter((t) => t.status === 'error').length;
+  const pending = tools.filter((t) => t.status === 'pending' || t.status === 'approval_required').length;
+  const ref = React.useRef<HTMLDetailsElement>(null);
+  // 同 ReasoningGroup：流式期间或有待审批/执行中的工具时展开，结束后收起。
+  // 受控 open prop 的 true→undefined 不会被 React 清理，改用 ref 显式同步，
+  // 且只在流式状态真正变化时写入，不覆盖用户手动展开。
+  React.useLayoutEffect(() => {
+    if (ref.current) ref.current.open = isStreaming || pending > 0;
+  }, [isStreaming, pending]);
+
+  return (
+    <details
+      ref={ref}
+      className="group my-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]/40 px-3 py-1.5 text-xs text-[var(--muted-foreground)] [&_summary::-webkit-details-marker]:hidden"
+    >
+      <summary className="flex cursor-pointer select-none items-center gap-2 py-0.5">
+        <span className="flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-medium)] bg-[var(--surface-1)]">
+          <WrenchIcon size={11} />
+        </span>
+        <span className="font-medium text-[var(--foreground)]">{display}</span>
+        <span className="tabular-nums">×{tools.length}</span>
+        {failed > 0 && <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">{failed} 失败</span>}
+        <ChevronDownIcon size={12} className="ml-auto shrink-0 transition-transform duration-200 group-open:-rotate-180" />
+      </summary>
+      <div className="mt-1.5 space-y-1 border-t border-[var(--border-subtle)] pt-1.5">
+        {tools.map((tool, i) => <ToolBlock key={`${tool.id || i}-${i}`} tool={tool} isAdmin={isAdmin} sessionId={sessionId} />)}
+      </div>
+    </details>
   );
 };
 
@@ -135,7 +209,7 @@ export const OrderedAssistantContent: React.FC<OrderedAssistantContentProps> = (
   const toolCalls = message.toolCalls ?? [];
 
   const renderText = (text: string, isLast: boolean) => (
-    <div className="prose prose-slate prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
+    <div className="prose break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
       <ErrorBoundary fallback={<InlineErrorFallback error="Markdown 渲染失败" />}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
@@ -175,13 +249,7 @@ export const OrderedAssistantContent: React.FC<OrderedAssistantContentProps> = (
           {text}
         </ReactMarkdown>
       </ErrorBoundary>
-      {isStreaming && isLast && (
-        <motion.span
-          className="inline-block w-[2px] h-[1.2em] bg-brand-500 rounded-full align-text-bottom ml-px"
-          animate={{ opacity: [1, 0.2, 1] }}
-          transition={{ duration: 0.8, repeat: Infinity }}
-        />
-      )}
+      {isStreaming && isLast && <span className="stream-caret" aria-hidden="true" />}
     </div>
   );
 
@@ -199,18 +267,32 @@ export const OrderedAssistantContent: React.FC<OrderedAssistantContentProps> = (
         if (segment.kind === 'reasoning') segments.push(segment.text);
         next += 1;
       }
-      nodes.push(<ReasoningGroup key={`rg-${cursor}`} segments={segments} />);
+      nodes.push(<ReasoningGroup key={`rg-${cursor}`} segments={segments} isStreaming={isStreaming} />);
       cursor = next;
       continue;
     }
 
     if (block.kind === 'tool') {
-      const toolIndex = toolCalls.findIndex(
-        (call, i) => toolCallIdOf(call, i) === block.toolCallId,
-      );
-      const tool = toolIndex >= 0 ? toolCalls[toolIndex] : undefined;
-      if (tool) nodes.push(<ToolBlock key={`tool-${block.toolCallId}`} tool={tool} isAdmin={isAdmin} />);
-      cursor += 1;
+      // 收集连续的同名工具块：>=3 个折叠成一行，少于 3 个保持逐条展示。
+      const run: ToolCall[] = [];
+      let next = cursor;
+      while (next < blocks.length && blocks[next].kind === 'tool') {
+        const b = blocks[next];
+        if (b.kind !== 'tool') break;
+        const idx = toolCalls.findIndex((call, i) => toolCallIdOf(call, i) === b.toolCallId);
+        const t = idx >= 0 ? toolCalls[idx] : undefined;
+        if (!t || (run.length > 0 && t.name !== run[0].name)) break;
+        run.push(t);
+        next += 1;
+      }
+      if (run.length >= 3) {
+        nodes.push(<ToolGroup key={`tg-${cursor}`} tools={run} isAdmin={isAdmin} isStreaming={isStreaming} sessionId={sessionId} />);
+      } else {
+        for (const t of run) {
+          nodes.push(<ToolBlock key={`tool-${t.id || t.name}-${cursor}`} tool={t} isAdmin={isAdmin} sessionId={sessionId} />);
+        }
+      }
+      cursor = next;
       continue;
     }
 

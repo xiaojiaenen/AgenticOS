@@ -8,6 +8,26 @@ import {
 } from './shared';
 import { applyAgentEvent } from './events';
 
+/**
+ * 推断流的收尾原因（供单测直接喂各种来源组合，不必真拉 SSE）。
+ *
+ * 三种「无正常 done」来源必须区分开，不能被一句 `aborted || text` 混淆：
+ * 1. 收到 SSE error 事件 → 'error'（服务端明确报错，绝不能因已有正文被判成中断）；
+ * 2. 调用方 signal.aborted → 'interrupted'（用户点停止 / 主动取消）；
+ * 3. 连接静默结束、无 done 无 error 也无正文 → 'error'（异常收尾）；
+ *    有正文但无 done → 流被中途掐断（网络断开），'interrupted' 保留已生成内容。
+ */
+export function resolveFinishReason(
+  state: Pick<StreamState, 'finishReason' | 'text' | 'errorEventReceived'>,
+  signalAborted: boolean,
+  errorEventLocal: boolean,
+): string {
+  if (state.finishReason) return state.finishReason;
+  if (errorEventLocal || state.errorEventReceived) return 'error';
+  if (signalAborted) return 'interrupted';
+  return state.text ? 'interrupted' : 'error';
+}
+
 export async function sendMessageStream(message: string, options: AgentServiceOptions): Promise<StreamResult> {
   const state: StreamState = {
     sessionId: options.sessionId,
@@ -127,10 +147,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     options.signal?.removeEventListener('abort', abort);
   }
 
-  // 无 done：客户端主动中断 → interrupted；否则视为异常结束
-  if (!state.finishReason) {
-    state.finishReason = options.signal?.aborted || state.text ? 'interrupted' : 'error';
-  }
+  state.finishReason = resolveFinishReason(state, options.signal?.aborted === true, errorEventReceived);
 
   return {
     sessionId: state.sessionId,

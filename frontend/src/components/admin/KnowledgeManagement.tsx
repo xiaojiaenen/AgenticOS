@@ -43,6 +43,7 @@ import {
   deleteDocument,
   deleteKnowledgeBase,
   getDocuments,
+  recompileDocument,
   getKnowledgeBases,
   getWikiPages,
   searchKnowledgeBase,
@@ -72,6 +73,10 @@ export function KnowledgeManagement() {
   const [selectedPage, setSelectedPage] = React.useState<WikiPage | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [searchResults, setSearchResults] = React.useState<SearchResult[]>([]);
+  // 文档 / Wiki 服务端分页（当前页从 1 起）
+  const [docsPage, setDocsPage] = React.useState(1);
+  const [wikiPage, setWikiPage] = React.useState(1);
+  const PAGE_SIZE = 10;
 
   const kbsQuery = useQuery({
     queryKey: ['admin', 'kbs'],
@@ -87,14 +92,16 @@ export function KnowledgeManagement() {
   );
 
   const docsQuery = useQuery({
-    queryKey: ['admin', 'kb-docs', selectedKB?.id],
-    queryFn: () => getDocuments(selectedKB!.id),
+    queryKey: ['admin', 'kb-docs', selectedKB?.id, docsPage],
+    queryFn: () => getDocuments(selectedKB!.id, PAGE_SIZE, (docsPage - 1) * PAGE_SIZE),
     enabled: view === 'detail' && selectedKB !== null,
+    placeholderData: (prev) => prev, // 翻页时保留上一页，避免闪空
   });
   const wikiQuery = useQuery({
-    queryKey: ['admin', 'kb-wiki', selectedKB?.id],
-    queryFn: () => getWikiPages(selectedKB!.id),
+    queryKey: ['admin', 'kb-wiki', selectedKB?.id, wikiPage],
+    queryFn: () => getWikiPages(selectedKB!.id, undefined, PAGE_SIZE, (wikiPage - 1) * PAGE_SIZE),
     enabled: view === 'detail' && selectedKB !== null,
+    placeholderData: (prev) => prev,
   });
 
   const uploadMutation = useMutation({
@@ -134,6 +141,16 @@ export function KnowledgeManagement() {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kbs'] });
     },
     onError: (err: Error) => toast.error(toastError(err, '上传失败')),
+  });
+
+  const recompileMutation = useMutation({
+    mutationFn: ({ kbId, docId }: { kbId: number; docId: number }) =>
+      recompileDocument(kbId, docId),
+    onSuccess: () => {
+      toast.success('已重新提交编译');
+      void docsQuery.refetch();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : '重新编译失败'),
   });
 
   const deleteDocMutation = useMutation({
@@ -180,8 +197,10 @@ export function KnowledgeManagement() {
     setSearchResults([]);
   };
 
-  const documents = docsQuery.data ?? [];
-  const wikiPages = wikiQuery.data ?? [];
+  const documents = docsQuery.data?.items ?? [];
+  const wikiPages = wikiQuery.data?.items ?? [];
+  const docsTotal = docsQuery.data?.total ?? 0;
+  const wikiTotal = wikiQuery.data?.total ?? 0;
 
   const kbColumns = React.useMemo<ColumnDef<KnowledgeBase, unknown>[]>(
     () => [
@@ -374,10 +393,15 @@ export function KnowledgeManagement() {
           {detailTab === 'documents' && (
             <KnowledgeDocumentsTab
               documents={documents}
+              total={docsTotal}
+              page={docsPage}
+              onPageChange={setDocsPage}
               isLoading={docsQuery.isLoading}
               isUploading={uploadMutation.isPending}
               onUpload={(files) => uploadMutation.mutate(files)}
               onDeleteDoc={setDeletingDoc}
+              onRecompile={(docId) => recompileMutation.mutate({ kbId: selectedKB.id, docId })}
+              recompiling={recompileMutation.isPending}
             />
           )}
 
@@ -385,6 +409,9 @@ export function KnowledgeManagement() {
           {detailTab === 'wiki' && (
             <KnowledgeWikiTab
               pages={wikiPages}
+              total={wikiTotal}
+              page={wikiPage}
+              onPageChange={setWikiPage}
               isLoading={wikiQuery.isLoading}
               selectedPage={selectedPage}
               onSelectPage={setSelectedPage}

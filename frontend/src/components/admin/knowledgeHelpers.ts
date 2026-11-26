@@ -12,7 +12,7 @@ export const kbFormSchema = z.object({
   name: z.string().min(1, '请填写知识库名称'),
   description: z.string(),
   purpose: z.string(),
-  scope: z.enum(['org', 'team', 'personal']),
+  scope: z.enum(['org', 'personal']),
   visibility: z.enum(['public', 'restricted', 'private']),
 });
 
@@ -21,7 +21,7 @@ export type KBFormValues = z.infer<typeof kbFormSchema>;
 export type DetailTab = 'documents' | 'wiki' | 'search' | 'reviews' | 'graph' | 'acl';
 
 export function scopeLabel(scope: string): string {
-  const map: Record<string, string> = { org: '组织级', team: '团队级', personal: '个人级' };
+  const map: Record<string, string> = { org: '组织级', personal: '个人级' };
   return map[scope] || scope;
 }
 

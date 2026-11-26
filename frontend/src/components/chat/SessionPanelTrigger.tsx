@@ -16,6 +16,7 @@ export const SessionPanelTrigger: React.FC<{ sessionId: string | null; messages:
   const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
   const closeSidebar = useChatStore((s) => s.closeSidebar);
   const openTab = useChatStore((s) => s.openSidebarTab);
+  const workspaceOutputs = useChatStore((s) => s.sessionWorkspaceOutputs);
 
   const toggle = () => {
     if (sidebarOpen) {
@@ -23,7 +24,7 @@ export const SessionPanelTrigger: React.FC<{ sessionId: string | null; messages:
       return;
     }
     // 展开时若会话已有产物，直接开最后一个（省一次点击）；否则只展开空侧栏
-    const tabs = collectTabs(messages, sessionId ?? '');
+    const tabs = collectTabs(messages, sessionId ?? '', workspaceOutputs);
     if (tabs.length > 0) openTab(tabs[tabs.length - 1]);
     else setSidebarOpen(true);
   };

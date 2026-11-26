@@ -25,13 +25,19 @@ export type UploadedFile = {
  * 传 `onProgress` 时改走 XMLHttpRequest：fetch 的请求体没有进度事件，
  * 只有 XHR 的 `upload.onprogress` 能给出真实字节进度（岛上传进度条的
  * 数据源）。不传时保持原来的 apiFetch 路径不变。
+ *
+ * `sessionId` 用于把文件落到会话工作区：后端只有收到 session_id 才会返回
+ * `rel_path`（工作区相对路径）。文档类工具只接受工作区内路径，缺少它时
+ * 模型拿到绝对路径会导致 file_to_md 报「路径必须位于 workspace 内」。
  */
 export async function uploadFile(
   file: File,
   onProgress?: (fraction: number) => void,
+  sessionId?: string | null,
 ): Promise<UploadedFile> {
   const formData = new FormData();
   formData.append('file', file);
+  if (sessionId) formData.append('session_id', sessionId);
 
   if (!onProgress) {
     return apiFetch<UploadedFile>(
@@ -74,10 +80,15 @@ export async function uploadFile(
 export async function uploadFiles(
   files: File[],
   onProgress?: (fileIndex: number, fraction: number) => void,
+  sessionId?: string | null,
 ): Promise<UploadedFile[]> {
   return Promise.all(
     files.map((file, index) =>
-      uploadFile(file, onProgress ? (fraction) => onProgress(index, fraction) : undefined),
+      uploadFile(
+        file,
+        onProgress ? (fraction) => onProgress(index, fraction) : undefined,
+        sessionId,
+      ),
     ),
   );
 }

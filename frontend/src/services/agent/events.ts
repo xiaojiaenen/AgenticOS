@@ -172,6 +172,9 @@ export function applyAgentEvent(
   }
 
   if (event === 'error') {
+    // 锁死失败标记：某些后端在 error 之后仍会补发 done，若不记录来源，
+    // done 会把 finishReason 覆盖成 'stop'，前端误判成功（错误事件穿透）。
+    state.errorEventReceived = true;
     // 对齐 apiClient 的错误类型：message 为归一化后的用户可读信息，detail 保留原始负载
     throw new ApiError(
       0,
@@ -184,7 +187,10 @@ export function applyAgentEvent(
   }
 
   if (event === 'done') {
-    state.finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : 'stop';
+    // error 事件优先：后端偶发在 error 后补发 done，不能被覆盖成成功。
+    if (!state.errorEventReceived) {
+      state.finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : 'stop';
+    }
     state.sessionState = payload as unknown as AgentSessionState;
     options.onSessionState?.(state.sessionState);
   }

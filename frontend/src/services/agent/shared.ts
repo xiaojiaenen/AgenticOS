@@ -305,7 +305,8 @@ export type StreamState = {
   sheetArtifact?: AgentSheetArtifact;
   documentArtifact?: AgentDocumentArtifact;
   /** A2UI 消息序列（累积，按协议顺序应用） */
-  /** A2UI 消息序列（累积，按协议顺序应用） */
   a2uiMessages?: Record<string, unknown>[];
   chartMessages?: Array<{ title?: string; option: unknown }>;
+  /** 收到 SSE error 事件：即便随后又收到 done，也不允许被覆盖成成功。 */
+  errorEventReceived?: boolean;
 };

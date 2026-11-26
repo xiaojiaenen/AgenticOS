@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, Loader2, RefreshCw, ShieldAlert } from 'lucide-react';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { ChartSkeleton } from '../components/ui/ChartSkeleton';
 import { Button } from '@/components/shadcn/button';
@@ -60,11 +60,20 @@ export const AdminDashboard = () => {
     const hash = window.location.hash.replace('#', '');
     return VALID_TABS.includes(hash) ? hash : 'dashboard';
   });
+  // Tab keep-alive：记录访问过的面板，切走时用 hidden 保留挂载而非卸载。
+  // 面板内部 state（筛选/展开/滚动位置）不丢，自管 fetch 不重复请求。
+  const [visitedTabs, setVisitedTabs] = useState<string[]>(() => {
+    const hash = window.location.hash.replace('#', '');
+    return [VALID_TABS.includes(hash) ? hash : 'dashboard'];
+  });
 
   React.useEffect(() => {
     const onHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (VALID_TABS.includes(hash)) setActiveTab(hash);
+      if (VALID_TABS.includes(hash)) {
+        setActiveTab(hash);
+        setVisitedTabs((prev) => (prev.includes(hash) ? prev : [...prev, hash]));
+      }
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -73,6 +82,7 @@ export const AdminDashboard = () => {
 
   const changeTab = useCallback((tab: string) => {
     setActiveTab(tab);
+    setVisitedTabs((prev) => (prev.includes(tab) ? prev : [...prev, tab]));
     if (window.location.hash.replace('#', '') !== tab) {
       window.history.replaceState(null, '', `#${tab}`);
     }
@@ -163,8 +173,8 @@ export const AdminDashboard = () => {
     };
   }, [isMobile, isSidebarOpen]);
 
-  const renderContent = () => {
-    switch (activeTab) {
+  const renderTab = (tab: string) => {
+    switch (tab) {
       case 'dashboard':
         return (
           <div className="admin-page-stage space-y-5">
@@ -311,7 +321,15 @@ export const AdminDashboard = () => {
       case 'evals':
         return <EvalPanel />;
       default:
-        return null;
+        return (
+          <div className="admin-page-stage flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-8 text-center">
+            <ShieldAlert size={32} className="text-[var(--muted-foreground)]" />
+            <p className="text-sm font-semibold text-[var(--foreground)]">暂无可用的管理面板</p>
+            <p className="max-w-md text-xs text-[var(--muted-foreground)]">
+              你的角色可进入后台，但没有可访问的面板权限。请联系管理员分配相应能力位。
+            </p>
+          </div>
+        );
     }
   };
 
@@ -381,12 +399,18 @@ export const AdminDashboard = () => {
 
       <main id="main-content" className="relative z-10 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1540px] px-4 pb-10 pt-6 md:px-6 xl:px-8">
-          {/* tab 切换入场走 CSS（.admin-page-stage）：挂载即播、不依赖 rAF，
-              避免 motion 入场在主线程繁忙/后台 tab 下卡在 opacity:0 造成整页空白。
-              Suspense 兜住 lazy tab chunk 的加载期，骨架占位防突兀空白 */}
-          <div key={activeTab} className="admin-page-stage">
-            <Suspense fallback={<TabFallback />}>{renderContent()}</Suspense>
-          </div>
+          {/* Tab keep-alive：已访问面板全部保持挂载，仅用 hidden 切换可见性。
+              切回时不重新挂载 → 筛选/滚动状态保留、自管 fetch 不重复请求。
+              hidden 属性配合 !hidden 工具类，避免内部 display 类覆盖。 */}
+          {visitedTabs.map((tab) => (
+            <div
+              key={tab}
+              hidden={tab !== activeTab}
+              className="admin-page-stage [&[hidden]]:!hidden"
+            >
+              <Suspense fallback={<TabFallback />}>{renderTab(tab)}</Suspense>
+            </div>
+          ))}
         </div>
       </main>
     </motion.div>

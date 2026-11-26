@@ -10,8 +10,11 @@ import { DashboardSummary } from '../../services/dashboardService';
  * 颜色走 CSS 变量（--surface-1 / --border-subtle / --foreground），
  * 深色模式下自动翻转，不写死 bg-[var(--surface-1)]。
  */
+// 参考 opus-frontend-arena（模型生成的 admin dashboard）的卡片结构：
+// 14px 圆角 + 20px padding + 1px 边框，hover 时边框提级 + 轻微上移（≤2px），
+// 不做 scale 放大（模型生成里常见的 AI 味）。
 export const STATIC_CARD =
- 'admin-card group flex h-full flex-col px-4 py-4';
+ 'admin-card group flex h-full flex-col rounded-[14px] px-5 py-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--border-medium)] hover:shadow-md';
 
 interface DashboardStatsProps {
  summary: DashboardSummary;
@@ -83,16 +86,20 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
     >
      <div className={STATIC_CARD}>
       <div className="flex items-center justify-between gap-2">
-       <span className="admin-muted text-[11px] font-semibold tracking-[0.08em]">{item.label}</span>
-       <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.bg} ${item.accent} transition-transform duration-300 group-hover:scale-110`}>
-        <item.icon size={15} />
+       <span className="admin-muted text-[10px] font-semibold uppercase tracking-[0.08em]">{item.label}</span>
+       {/* 图标 chip 44px，语义 muted 底；不放大，只随卡片微微上移 */}
+       <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] ${item.bg} ${item.accent}`}>
+        <item.icon size={18} />
        </div>
       </div>
-      <p className="mt-2.5 admin-heading text-xl font-semibold tracking-tight lg:text-2xl">
+      {/* 大数字用等宽字体 + 收紧字距（-0.02em），金额/指标数字对齐 */}
+      <p className="admin-heading mt-3 font-mono text-[1.875rem] font-semibold leading-none tracking-[-0.02em]">
         <CountUp value={item.getCount(s)} format={item.format} />
       </p>
-      {/* 副信息行占位固定高度：有无副信息的卡片保持等高 */}
-      <p className="admin-muted mt-1 min-h-[14px] text-[11px] font-semibold">{item.getSub?.(s) ?? ''}</p>
+      {/* 副信息：顶部 hairline 分隔，固定高度保持卡片等高 */}
+      <p className="admin-muted mt-4 min-h-[16px] border-t border-[var(--border-subtle)] pt-2.5 text-[11px] font-medium">
+        {item.getSub?.(s) ?? '—'}
+      </p>
      </div>
     </motion.div>
    ))}

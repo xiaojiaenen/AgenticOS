@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Check, Clock, Globe, FileText, RefreshCw, ShieldAlert, X } from 'lucide-react';
+import { Pagination } from './Pagination';
 import { apiFetch } from '../../services/apiClient';
 import { toast } from 'sonner';
 import { toastError } from '../../lib/errors';
@@ -15,6 +16,7 @@ import { toastError } from '../../lib/errors';
  * 的审批 API），复杂操作跳转对应面板完成。
  */
 
+type PageMeta = { total: number; pages: number; current: number; page_size: number };
 type UnifiedPending = {
   counts: {
     website_deploys: number;
@@ -22,6 +24,7 @@ type UnifiedPending = {
     tool_approvals: number;
     total: number;
   };
+  pagination?: Record<'website_deploys' | 'published_items' | 'tool_approvals', PageMeta>;
   website_deploys: Array<Record<string, unknown>>;
   published_items: Array<Record<string, unknown>>;
   tool_approvals: Array<Record<string, unknown>>;
@@ -41,6 +44,9 @@ const timeOf = (v: unknown): string => {
 export const ApprovalCenter: React.FC = () => {
   const [data, setData] = useState<UnifiedPending | null>(null);
   const [loading, setLoading] = useState(true);
+  // 服务端分页：三类共用当前页，每类页数由后端 pagination 元信息给出
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
   const [error, setError] = useState<string | null>(null);
   const [decided, setDecided] = useState<Record<string, boolean>>({});
 
@@ -48,14 +54,16 @@ export const ApprovalCenter: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const body = await apiFetch<UnifiedPending>('/api/v1/admin/approvals/pending');
+      const body = await apiFetch<UnifiedPending>(
+        `/api/v1/admin/approvals/pending?limit=${pageSize}&offset=${(page - 1) * pageSize}`,
+      );
       setData(body);
     } catch (err) {
       setError(toastError(err, '加载待审批列表失败'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     void load();
@@ -146,7 +154,7 @@ export const ApprovalCenter: React.FC = () => {
               <p className="mt-3 text-xs text-[var(--muted-foreground)]">暂无待审批部署。</p>
             ) : (
               <ul className="mt-3 space-y-2">
-                {data.website_deploys.slice(0, 8).map((d, i) => (
+                {data.website_deploys.map((d, i) => (
                   <li
                     key={`deploy-${i}`}
                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-xs"
@@ -169,6 +177,7 @@ export const ApprovalCenter: React.FC = () => {
                 ))}
               </ul>
             )}
+            {data.pagination && data.pagination.website_deploys.pages > 1 && <Pagination currentPage={page} totalPages={data.pagination.website_deploys.pages} onPageChange={setPage} totalLabel={`共 ${data.pagination.website_deploys.total} 条`} dense />}
             <p className="mt-3 text-[11px] text-[var(--muted-foreground)]">
               完整审批（预览/复审）请前往「部署」面板。
             </p>
@@ -186,7 +195,7 @@ export const ApprovalCenter: React.FC = () => {
               <p className="mt-3 text-xs text-[var(--muted-foreground)]">暂无待审批发布。</p>
             ) : (
               <ul className="mt-3 space-y-2">
-                {data.published_items.slice(0, 8).map((p) => {
+                {data.published_items.map((p) => {
                   const item = p as Record<string, unknown>;
                   const key = `pub-${String(item.id)}`;
                   return (
@@ -221,6 +230,7 @@ export const ApprovalCenter: React.FC = () => {
                 })}
               </ul>
             )}
+            {data.pagination && data.pagination.published_items.pages > 1 && <Pagination currentPage={page} totalPages={data.pagination.published_items.pages} onPageChange={setPage} totalLabel={`共 ${data.pagination.published_items.total} 条`} dense />}
           </section>
 
           {/* 工具审批 */}
@@ -237,7 +247,7 @@ export const ApprovalCenter: React.FC = () => {
               </p>
             ) : (
               <ul className="mt-3 space-y-2">
-                {data.tool_approvals.slice(0, 8).map((t) => {
+                {data.tool_approvals.map((t) => {
                   const item = t as Record<string, unknown>;
                   return (
                     <li
@@ -260,6 +270,7 @@ export const ApprovalCenter: React.FC = () => {
                 })}
               </ul>
             )}
+            {data.pagination && data.pagination.tool_approvals.pages > 1 && <Pagination currentPage={page} totalPages={data.pagination.tool_approvals.pages} onPageChange={setPage} totalLabel={`共 ${data.pagination.tool_approvals.total} 条`} dense />}
           </section>
         </div>
       )}

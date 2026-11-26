@@ -26,8 +26,8 @@ const APPROVAL_OPTIONS: {
   },
   {
     value: 'auto',
-    label: '只读放行',
-    hint: '查询类工具自动执行，写操作仍确认',
+    label: '自动放行（只读）',
+    hint: '查询类工具自动执行，写操作仍需你确认',
     icon: ShieldCheck,
   },
   {

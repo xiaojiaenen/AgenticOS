@@ -54,6 +54,13 @@ export type AuthUser = {
    * 老缓存里可能没有这个字段（登录/`/auth/me` 会自动补齐）。
    */
   capabilities?: string[];
+  /**
+   * 生效的细粒度权限点（如 `user:create`、`kb:delete`）。
+   * 由后端权限矩阵计算（角色 + 多角色并集），按钮级控制用。
+   */
+  permissions?: string[];
+  /** 是否可进后台（后端统一口径，前端直接用，不再自己重算） */
+  can_enter_admin?: boolean;
 };
 
 export type Message = {

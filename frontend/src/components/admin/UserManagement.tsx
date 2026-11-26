@@ -18,6 +18,7 @@ import {
   Trash2,
   User as UserIcon,
   UserCheck,
+  UserCog,
   UserX,
 } from 'lucide-react';
 import { DataTable } from './data-table';
@@ -25,6 +26,8 @@ import { RowActions } from './RowActions';
 import { Pagination } from './Pagination';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
+import { Permission } from '@/components/ui/Permission';
+import { UserRoleAssignPanel } from './UserRoleAssignPanel';
 import { Input } from '@/components/shadcn/input';
 import { Label } from '@/components/shadcn/label';
 import { Checkbox } from '@/components/shadcn/checkbox';
@@ -136,7 +139,10 @@ function UserFormDialog({
     ? roleOptions
     : [
         { value: 'user', label: '普通用户', hint: '使用智能体，管理自己的会话与产物', capabilities: [] },
+        { value: 'auditor', label: '审计员', hint: '只读统计与审计日志', capabilities: [] },
+        { value: 'operator', label: '运营', hint: '管理内容，不碰人/钱/钥匙', capabilities: [] },
         { value: 'admin', label: '管理员', hint: '平台配置全部可管（不含他人对话正文）', capabilities: [] },
+        { value: 'superadmin', label: '超级管理员', hint: '全部权限，含高危操作与代查对话', capabilities: [] },
       ];
 
   const form = useForm<UserFormValues>({
@@ -161,7 +167,9 @@ function UserFormDialog({
         email: editingUser?.email ?? '',
         name: editingUser?.name ?? '',
         password: '',
-        role: editingUser?.role === 'admin' ? 'admin' : 'user',
+        // 直接回显真实角色：原来的 `=== 'admin' ? 'admin' : 'user'` 会把
+        // operator / auditor 编辑时静默降级成普通用户（保存即丢权限）。
+        role: editingUser?.role || 'user',
         is_active: editingUser?.is_active ?? true,
       });
     }
@@ -305,6 +313,17 @@ export const UserManagement = () => {
   const queryClient = useQueryClient();
 
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [showRoleAssign, setShowRoleAssign] = React.useState(false);
+  // 多角色分配面板要用的角色选项
+  const { data: roleOptions } = useQuery({
+    queryKey: ['admin', 'roles'],
+    queryFn: listRoles,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+  const assignRoles: RoleOption[] = roleOptions?.length
+    ? roleOptions
+    : [{ value: 'user', label: '普通用户', hint: '', capabilities: [] }, { value: 'admin', label: '管理员', hint: '', capabilities: [] }];
   const [searchInput, setSearchInput] = React.useState('');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [formOpen, setFormOpen] = React.useState(false);
@@ -475,20 +494,39 @@ export const UserManagement = () => {
             <KpiPill label="共" value={total} />
             <KpiPill label="本页启用" value={activeUsers} />
             <KpiPill label="本页管理员" value={adminUsers} />
-            <Button
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                setEditingUser(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus size={14} />
-              新增
-            </Button>
+            <Permission point="user:create">
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  setEditingUser(null);
+                  setFormOpen(true);
+                }}
+              >
+                <Plus size={14} />
+                新增
+              </Button>
+            </Permission>
           </>
         }
       />
+
+      {/* 多角色分配（主角色之外的额外角色）；默认收起，不干扰主流程 */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setShowRoleAssign((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1.5 text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+        >
+          <UserCog size={13} />
+          {showRoleAssign ? '收起角色分配' : '多角色分配'}
+        </button>
+      </div>
+      {showRoleAssign && (
+        <Permission point="user:role">
+          <UserRoleAssignPanel roles={assignRoles} />
+        </Permission>
+      )}
 
       {usersQuery.isError ? (
         <ErrorBanner message={toastError(usersQuery.error, '用户加载失败')} onRetry={() => void usersQuery.refetch()} />

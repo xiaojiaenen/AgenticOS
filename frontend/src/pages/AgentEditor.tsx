@@ -47,7 +47,7 @@ import {
 import type { ToolCatalogItem } from '../services/toolConfigService';
 import { useGoBack } from '../hooks/useGoBack';
 import { TOOL_CATEGORIES, categoryOf } from '../lib/toolCategories';
-import { canEnterAdmin } from '@/services/authTokenStore';
+import { hasCapability } from '@/services/authTokenStore';
 
 /**
  * 工具分组由 lib/toolCategories.ts 统一维护（AgentEditor 与
@@ -115,11 +115,14 @@ export const AgentEditor: React.FC = () => {
   // 「上架后谁能用」。用户自建的默认不上架（平台级动作，需审核），
   // 管理员可以直接勾。
   const [listed, setListed] = useState(false);
-  const isAdminViewer = canEnterAdmin();
+  // 上架是平台级动作，后端用 is_admin_like（user:manage）判定，前端必须同口径。
+  const isAdminViewer = hasCapability('user:manage');
   // 启用范围：all = 全体用户；selected = 仅指定用户；none = 暂不开放给任何人。
   // 用户自建的智能体默认「暂不开放」—— 公开上架属于平台级动作，不该由
   // 自建者一键完成（审核成本与滥用风险都高）。
   const [audienceMode, setAudienceMode] = useState<'all' | 'selected' | 'none'>('none');
+  // 仅当用户主动改动启用范围时才提交，避免编辑名字时把管理员配好的 ACL 清空
+  const audienceTouchedRef = React.useRef(false);
   const [maxSteps, setMaxSteps] = useState<string>('');
   const [tab, setTab] = useState<EditorSection>('basic');
 
@@ -226,6 +229,11 @@ export const AgentEditor: React.FC = () => {
         const mine = await getMyAgents();
         const profile = mine.items.find((item) => item.id === editingId);
         if (profile) applyProfile(profile);
+        else {
+          // 找不到时绝不保持空表单：此前用户点保存会用空值 PATCH，
+          // 管理员可能直接清空他人智能体的配置。明确报错并禁用保存。
+          setError('无法加载该智能体：可能不存在、已停用或你没有编辑权限。');
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : '加载失败');
       } finally {
@@ -283,6 +291,7 @@ export const AgentEditor: React.FC = () => {
     setAudienceMode(
       (profile.audience_mode as 'all' | 'selected' | 'none' | undefined) || 'none',
     );
+    audienceTouchedRef.current = false;
     setMaxSteps(profile.max_steps ? String(profile.max_steps) : '');
     const tools: Record<string, boolean> = {};
     const approvals: Record<string, boolean> = {};
@@ -360,7 +369,7 @@ export const AgentEditor: React.FC = () => {
         visibility,
         // 启用范围只在自己明确改过时提交。此前这里硬编码 'all' + [],
         // 会把管理员配好的 ACL 悄悄清空（用户编辑个名字就丢权限配置）。
-        ...(audienceMode !== 'all'
+        ...(audienceTouchedRef.current
           ? { audience_mode: audienceMode, audience_user_ids: [] }
           : {}),
         max_steps: parsedMaxSteps,
@@ -433,7 +442,7 @@ export const AgentEditor: React.FC = () => {
                 删除
               </Button>
             )}
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
+            <Button onClick={handleSave} disabled={saving || Boolean(error)} className="gap-2">
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
               {isEditing ? '保存' : '创建'}
             </Button>
@@ -655,7 +664,7 @@ export const AgentEditor: React.FC = () => {
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setAudienceMode(value)}
+                    onClick={() => { audienceTouchedRef.current = true; setAudienceMode(value); }}
                     className={cn(
                       'rounded-lg border px-3 py-2 text-left transition-all',
                       audienceMode === value
@@ -772,7 +781,7 @@ export const AgentEditor: React.FC = () => {
             <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
               {tab === 'knowledge'
                 ? '启用「知识库检索」工具后，智能体即可在回答时检索已建知识库中的文档。知识库本身在「管理后台 → 知识库」中维护，此处只需确保工具已勾选。'
-                : 'MCP 服务在「管理后台 → 集成管理」中配置；配置完成后，相关工具会出现在上方「工具」列表里，勾选即可使用。'}
+                : 'MCP 工具在「管理后台 → 集成管理」里给智能体授权服务器后自动可用（形如 mcp__服务器__工具），不在此清单勾选。'}
             </p>
           </section>
         )}

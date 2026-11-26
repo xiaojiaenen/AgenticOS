@@ -113,7 +113,6 @@ export function CreateKBDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="org">组织级</SelectItem>
-                  <SelectItem value="team">团队级</SelectItem>
                   <SelectItem value="personal">个人级</SelectItem>
                 </SelectContent>
               </Select>

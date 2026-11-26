@@ -5,7 +5,7 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const KB_ENDPOINT = `${API_BASE_URL}/api/v1/knowledge`;
 
-import { apiFetch } from './apiClient';
+import { apiFetch, apiFetchPaged } from './apiClient';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -137,11 +137,10 @@ export async function deleteKnowledgeBase(id: number): Promise<void> {
 // Documents
 // ---------------------------------------------------------------------------
 
-export async function getDocuments(kbId: number): Promise<KBDocument[]> {
-  return apiFetch<KBDocument[]>(
-          `${KB_ENDPOINT}/bases/${kbId}/documents`,
-          {
-  }
+export async function getDocuments(kbId: number, limit = 10, offset = 0): Promise<{ items: KBDocument[]; total: number }> {
+  return apiFetchPaged<KBDocument[]>(
+          `${KB_ENDPOINT}/bases/${kbId}/documents?limit=${limit}&offset=${offset}`,
+          {}
         );}
 
 export async function uploadDocument(kbId: number, file: File): Promise<KBDocument> {
@@ -155,6 +154,15 @@ export async function uploadDocument(kbId: number, file: File): Promise<KBDocume
   }
         );}
 
+/** 重新编译单个文档（失败后自助恢复） */
+export async function recompileDocument(kbId: number, docId: number): Promise<{ task_id: string | null }> {
+  return apiFetch<{ task_id: string | null }>(
+    `${KB_ENDPOINT}/bases/${kbId}/documents/${docId}/recompile`,
+    { method: 'POST' },
+    '重新编译失败',
+  );
+}
+
 export async function deleteDocument(kbId: number, docId: number): Promise<void> {
   await apiFetch<unknown>(
           `${KB_ENDPOINT}/bases/${kbId}/documents/${docId}`,
@@ -167,12 +175,12 @@ export async function deleteDocument(kbId: number, docId: number): Promise<void>
 // Wiki Pages
 // ---------------------------------------------------------------------------
 
-export async function getWikiPages(kbId: number, pageType?: string): Promise<WikiPage[]> {
-  const params = pageType ? `?page_type=${encodeURIComponent(pageType)}` : '';
-  return apiFetch<WikiPage[]>(
-          `${KB_ENDPOINT}/bases/${kbId}/wiki/pages${params}`,
-          {
-  }
+export async function getWikiPages(kbId: number, pageType?: string, limit = 10, offset = 0): Promise<{ items: WikiPage[]; total: number }> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (pageType) params.set('page_type', pageType);
+  return apiFetchPaged<WikiPage[]>(
+          `${KB_ENDPOINT}/bases/${kbId}/wiki/pages?${params.toString()}`,
+          {}
         );}
 
 export async function getWikiPage(kbId: number, pageId: number): Promise<WikiPage> {

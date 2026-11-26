@@ -24,7 +24,7 @@ export interface ChatContextValue {
     allowAll?: boolean,
     modifiedArguments?: Record<string, unknown>,
     response?: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   handleDecisionMade: (decisionId: string, answer: string) => void;
 
   // ── 滚动 ──

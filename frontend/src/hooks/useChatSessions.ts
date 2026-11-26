@@ -93,6 +93,14 @@ function loadCachedSessions(): Session[] {
   }
 }
 
+/**
+ * 本地新建会话 ID 形如 `${Date.now()}-${随机后缀}`（见 useChatStream.handleSend），
+ * 后端真实 session_id 是 UUID / 服务端生成的字符串，不会是这种格式。
+ */
+export function isLocalPendingSessionId(id: string): boolean {
+  return /^\d{10,}-[a-z0-9]+$/i.test(id);
+}
+
 function saveSessionsToCache(sessions: Session[]) {
   const key = getCacheKey();
   // 过滤掉空会话（没有消息的会话，除了当前正在创建的），并限制总数为 24
@@ -193,10 +201,18 @@ export function useChatSessions() {
           return reconcileBackendWithLocal(mergeLocalIntoConverted(merged, prev), prev);
         });
 
-        // 缓存的当前会话可能已被删除（另一标签页/后端清理），此时退回空态
-        setCurrentSessionId((prevId) =>
-          prevId && merged.some((s) => s.id === prevId) ? prevId : null,
-        );
+        // 缓存的当前会话可能已被删除（另一标签页/后端清理），此时退回空态。
+        // 但不能误伤**本轮在前端新建、还没落到后端的会话**（home 页跳转 /
+        // 刚发出第一条消息）：它们不在 merged（后端快照）里，却真实存在于
+        // prev（内存中的最新列表）。本地 ID 形如 `${Date.now()}-${随机后缀}`。
+        setCurrentSessionId((prevId) => {
+          if (!prevId) return null;
+          if (merged.some((s) => s.id === prevId)) return prevId;
+          // 本轮在前端新建、还没落到后端的会话（in-flight）——保留。
+          // 真实后端 session_id 不是时间戳格式，本地新建 ID 都是时间戳前缀。
+          if (isLocalPendingSessionId(prevId)) return prevId;
+          return null;
+        });
       } catch (error) {
         console.error('Failed to load sessions from backend:', error);
         // Keep cached sessions on error
@@ -240,6 +256,9 @@ export function useChatSessions() {
   const deleteSession = useCallback(async (id: string): Promise<boolean> => {
     // 快照用于失败回滚（在 updater 外读取，避免 StrictMode 下 updater 双调用污染快照）
     const snapshot = sessions;
+    // 记录被删会话是否正是当前会话：失败回滚时一并恢复 currentSessionId，
+    // 否则 UI 层（Chat.deleteSession）虽恢复了 mode/agent，会话本身仍是空的。
+    const wasCurrent = useChatStore.getState().currentSessionId === id;
     setSessions(prev => prev.filter(s => s.id !== id));
     setCurrentSessionId(prev => (prev === id ? null : prev));
 
@@ -248,8 +267,9 @@ export function useChatSessions() {
       return true;
     } catch (error) {
       console.error('Failed to delete session from backend:', error);
-      // 后端失败 → 回滚本地删除
+      // 后端失败 → 回滚本地删除（列表 + 当前会话指针）
       setSessions(snapshot);
+      if (wasCurrent) setCurrentSessionId(id);
       return false;
     }
   }, [sessions]);

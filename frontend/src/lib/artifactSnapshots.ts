@@ -93,3 +93,50 @@ export function patchLastModelMessage<T extends { role: string }>(
   }
   return messages;
 }
+
+/** 产物恢复判定所需的最小消息形状（两种 helper 共用）。 */
+export type ArtifactSnapshotMsg = {
+  role: string;
+  pptArtifact?: { status?: string; html?: string };
+  websiteArtifact?: { status?: string; html?: string };
+};
+
+/** 缓存剥离 artifact HTML 后，是否还要等回源补全（此时过早恢复会拿到空预览）。 */
+export function hasPendingArtifactHtml(messages: ArtifactSnapshotMsg[]): boolean {
+  return messages.some(
+    (m) =>
+      m.role === 'model' &&
+      ((m.pptArtifact && !m.pptArtifact.html) || (m.websiteArtifact && !m.websiteArtifact.html)),
+  );
+}
+
+/**
+ * 从消息里挑出可恢复的产物（后往前，PPT 优先于网站）。
+ * Chat.tsx 的恢复 effect 用它做纯决策，effect 本身只管 ref / 异步回源时序。
+ */
+export function findRestorableArtifact(messages: ArtifactSnapshotMsg[]): 'ppt' | 'website' | null {
+  const reversed = [...messages].reverse();
+  const ppt = reversed.find(
+    (m) => m.role === 'model' && m.pptArtifact?.status === 'ready' && m.pptArtifact.html,
+  );
+  if (ppt) return 'ppt';
+  const website = reversed.find(
+    (m) => m.role === 'model' && m.websiteArtifact?.status === 'ready' && m.websiteArtifact.html,
+  );
+  return website ? 'website' : null;
+}
+
+/**
+ * 无产物的会话是否应清空当前面板：只清「明确属于其它会话」的，或本来就是空的。
+ * 流式刚设置、尚未带 sessionId 的产物不动（避免迟到响应把用户刚打开的面板打掉）。
+ */
+export function shouldClearStaleArtifact(
+  artifact: { sessionId?: string } | null | undefined,
+  currentSessionId: string,
+): boolean {
+  if (!artifact) return true;
+  if ('sessionId' in artifact && typeof artifact.sessionId === 'string') {
+    return artifact.sessionId !== currentSessionId;
+  }
+  return false;
+}

@@ -8,8 +8,7 @@
  * 之内，`..` 逃逸会被 400 拒绝 —— 前端不做也不应做自己的路径校验。
  */
 import * as React from 'react';
-import { ChevronLeft, File as FileIcon, Folder, Loader2, RefreshCw } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { ChevronLeft, Download, File as FileIcon, Folder, Loader2, RefreshCw } from 'lucide-react';
 import { apiFetch } from '../../services/apiClient';
 import type { SessionPanelProps } from './types';
 
@@ -28,6 +27,39 @@ export const FilesPanel: React.FC<SessionPanelProps> = ({ sessionId }) => {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [rootExists, setRootExists] = React.useState(true);
+  const [downloading, setDownloading] = React.useState<string | null>(null);
+
+  /** 通过带鉴权端点下载 outputs/ 下的产物文件（csv/xlsx/json/txt/md/图片）。 */
+  const downloadFile = React.useCallback(
+    async (entry: Entry) => {
+      if (!sessionId) return;
+      // /files/workspace 返回相对工作区的路径（如 outputs/data.csv）；
+      // 下载端点只认 outputs/ 下的文件名，取最后一段即可。
+      const filename = entry.path.split('/').pop() ?? entry.name;
+      setDownloading(entry.path);
+      try {
+        const blob = await apiFetch<Blob>(
+          `/api/v1/agent/sessions/${encodeURIComponent(sessionId)}/outputs/${encodeURIComponent(filename)}`,
+          { responseType: 'blob' },
+          '下载文件失败',
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = entry.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        // 给浏览器一点时间读取 blob 后再释放
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '下载失败');
+      } finally {
+        setDownloading(null);
+      }
+    },
+    [sessionId],
+  );
 
   const load = React.useCallback(
     async (nextPath: string) => {
@@ -126,32 +158,41 @@ export const FilesPanel: React.FC<SessionPanelProps> = ({ sessionId }) => {
         <ul className="flex flex-col py-1">
           {entries.map((entry) => (
             <li key={entry.path}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (entry.type === 'dir') void load(entry.path);
-                }}
-                className={cn(
-                  'flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors',
-                  entry.type === 'dir'
-                    ? 'hover:bg-[var(--surface-2)]'
-                    : 'cursor-default',
-                )}
-              >
-                {entry.type === 'dir' ? (
+              {entry.type === 'dir' ? (
+                <button
+                  type="button"
+                  onClick={() => void load(entry.path)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--surface-2)]"
+                >
                   <Folder size={14} className="shrink-0 text-amber-500" />
-                ) : (
-                  <FileIcon size={14} className="shrink-0 text-[var(--muted-foreground)]" />
-                )}
-                <span className="min-w-0 flex-1 truncate text-xs text-[var(--foreground)]">
-                  {entry.name}
-                </span>
-                {entry.size != null ? (
-                  <span className="shrink-0 text-[10px] tabular-nums text-[var(--muted-foreground)]">
-                    {formatSize(entry.size)}
+                  <span className="min-w-0 flex-1 truncate text-xs text-[var(--foreground)]">
+                    {entry.name}
                   </span>
-                ) : null}
-              </button>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void downloadFile(entry)}
+                  disabled={downloading === entry.path}
+                  title="点击下载"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
+                >
+                  {downloading === entry.path ? (
+                    <Loader2 size={14} className="shrink-0 animate-spin text-[var(--muted-foreground)]" />
+                  ) : (
+                    <FileIcon size={14} className="shrink-0 text-[var(--muted-foreground)]" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-xs text-[var(--foreground)]">
+                    {entry.name}
+                  </span>
+                  {entry.size != null ? (
+                    <span className="shrink-0 text-[10px] tabular-nums text-[var(--muted-foreground)]">
+                      {formatSize(entry.size)}
+                    </span>
+                  ) : null}
+                  <Download size={12} className="shrink-0 text-[var(--muted-foreground)]" />
+                </button>
+              )}
             </li>
           ))}
         </ul>

@@ -13,7 +13,8 @@ type PendingApprovalPanelProps = {
    * - status=approved 且用户编辑过参数时是 modifiedArguments 的 JSON 字符串
    *   （战线 3G.1：改参=edit 决策；后端 ApprovalManager 写入 modified_arguments）
    */
-  onDecision: (approvalId: string, status: ApprovalDecisionStatus, isApiApproval?: boolean, allowAll?: boolean, payload?: string) => void;
+  /** 返回 true 表示提交成功；false 表示失败（面板会解锁按钮允许重试）。 */
+  onDecision: (approvalId: string, status: ApprovalDecisionStatus, isApiApproval?: boolean, allowAll?: boolean, payload?: string) => Promise<boolean> | void;
 };
 
 /**
@@ -91,7 +92,18 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
     if (submitting[approvalId]) return;
     if (status === 'respond' && !(respondDraft[approvalId] || '').trim()) return;
     setSubmitting((prev) => ({ ...prev, [approvalId]: true }));
-    onDecision(approvalId, status, isApiApproval, allowAll, payload);
+    Promise.resolve(onDecision(approvalId, status, isApiApproval, allowAll, payload))
+      .then((ok) => {
+        // 提交失败（网络错误/后端 5xx）时审批项会被 hook 回滚为
+        // approval_required 并仍留在面板里 —— 必须解锁按钮，否则用户
+        // 永久卡在转圈状态，只能刷新页面。
+        if (ok === false) {
+          setSubmitting((prev) => ({ ...prev, [approvalId]: false }));
+        }
+      })
+      .catch(() => {
+        setSubmitting((prev) => ({ ...prev, [approvalId]: false }));
+      });
   };
 
   return (
@@ -250,29 +262,33 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                   )}
 
                   {/* 人工代答（战线 A3，DeepAgents respond 决策）：工具不执行，
-                      用户答案作为工具结果回灌给模型。放底部独立一行。 */}
-                  <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
-                    <input
-                      type="text"
-                      value={respondDraft[approvalId] ?? ''}
-                      onChange={(e) => setRespondDraft((prev) => ({ ...prev, [approvalId]: e.target.value }))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') decide(approvalId, 'respond', approval.isApiApproval, false, respondDraft[approvalId]);
-                      }}
-                      placeholder="或直接代答（工具不再执行，答案回传给 AI）…"
-                      className="min-w-0 flex-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-1.5 text-[11px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-halo)]"
-                    />
-                    <button
-                      type="button"
-                      disabled={pending || !(respondDraft[approvalId] || '').trim()}
-                      onClick={() => decide(approvalId, 'respond', approval.isApiApproval, false, respondDraft[approvalId])}
-                      className={`${buttonBase} border border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--foreground)] hover:bg-[var(--surface-3)] disabled:opacity-50`}
-                      aria-label="人工代答"
-                    >
-                      {pending ? <Loader2 size={13} className="animate-spin" /> : <MessageSquarePlus size={13} />}
-                      代答
-                    </button>
-                  </div>
+                      用户答案作为工具结果回灌给模型。放底部独立一行。
+                      API 审批端点只支持 approve/reject（无 respond 语义），
+                      不渲染该入口，避免"点了等于拒绝"的假功能。 */}
+                  {!approval.isApiApproval && (
+                    <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
+                      <input
+                        type="text"
+                        value={respondDraft[approvalId] ?? ''}
+                        onChange={(e) => setRespondDraft((prev) => ({ ...prev, [approvalId]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') decide(approvalId, 'respond', false, false, respondDraft[approvalId]);
+                        }}
+                        placeholder="或直接代答（工具不再执行，答案回传给 AI）…"
+                        className="min-w-0 flex-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-1.5 text-[11px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-halo)]"
+                      />
+                      <button
+                        type="button"
+                        disabled={pending || !(respondDraft[approvalId] || '').trim()}
+                        onClick={() => decide(approvalId, 'respond', false, false, respondDraft[approvalId])}
+                        className={`${buttonBase} border border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--foreground)] hover:bg-[var(--surface-3)] disabled:opacity-50`}
+                        aria-label="人工代答"
+                      >
+                        {pending ? <Loader2 size={13} className="animate-spin" /> : <MessageSquarePlus size={13} />}
+                        代答
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

@@ -233,7 +233,12 @@ export const Login = () => {
       } else {
         await loginWithCode(parsed.data.email, parsed.data.code);
       }
-      const from = (location.state as { from?: string } | null)?.from;
+      // 优先 ProtectedRoute 的 state.from；apiClient 的 401 硬跳转（清 token
+      // 后 location.assign）无法携带 state，改为读取 ?from= 查询参数兜底，
+      // 否则用户登录后会被丢到默认页、丢掉原本要访问的页面。
+      const from =
+        (location.state as { from?: string } | null)?.from ??
+        new URLSearchParams(location.search).get('from');
       toast.success('登录成功，正在进入工作台');
       navigate(from || (canEnterAdmin() ? '/admin' : '/chat'), { replace: true });
     } catch (err) {

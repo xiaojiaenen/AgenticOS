@@ -4,19 +4,29 @@
  */
 import { BookOpen, ChevronRight, Eye, Loader2 } from 'lucide-react';
 import { Button } from '@/components/shadcn/button';
+import { Pagination } from './Pagination';
 import type { WikiPage } from '@/services/knowledgeService';
 
 export function KnowledgeWikiTab({
   pages,
+  total,
+  page,
+  onPageChange,
   isLoading,
   selectedPage,
   onSelectPage,
 }: {
   pages: WikiPage[];
+  total: number;
+  page: number;
+  onPageChange: (page: number) => void;
   isLoading: boolean;
   selectedPage: WikiPage | null;
   onSelectPage: (page: WikiPage | null) => void;
 }) {
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 text-[var(--muted-foreground)]">
@@ -66,27 +76,35 @@ export function KnowledgeWikiTab({
 
   return (
     <div className="space-y-3">
-      {pages.map((page) => (
+      {pages.map((wikiPage) => (
         <button
-          key={page.id}
-          onClick={() => onSelectPage(page)}
+          key={wikiPage.id}
+          onClick={() => onSelectPage(wikiPage)}
           className="flex w-full items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3 text-left shadow-sm transition hover:border-zinc-300 hover:bg-[var(--surface-2)]"
         >
           <div className="flex items-center gap-3">
             <BookOpen className="h-4 w-4 text-[var(--muted-foreground)]" />
             <div>
-              <p className="text-sm font-medium text-[var(--foreground)]">{page.title}</p>
-              <p className="text-xs font-medium text-[var(--muted-foreground)]">{page.page_type}</p>
+              <p className="text-sm font-medium text-[var(--foreground)]">{wikiPage.title}</p>
+              <p className="text-xs font-medium text-[var(--muted-foreground)]">{wikiPage.page_type}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
-              {page.authority_level}
+            <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-xs font-medium text-[var(--muted-foreground)]">
+              {wikiPage.authority_level}
             </span>
             <Eye className="h-4 w-4 text-[var(--muted-foreground)]" />
           </div>
         </button>
       ))}
+      {total > pageSize && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          totalLabel={`共 ${total} 页`}
+        />
+      )}
     </div>
   );
 }

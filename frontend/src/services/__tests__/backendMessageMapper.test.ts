@@ -66,13 +66,14 @@ describe('mapBackendMessages', () => {
       assistant(undefined, { content: '柱状图已经出来了' }),
     ];
     const msgs = mapBackendMessages(raw);
-    expect(msgs).toHaveLength(3);
+    // 同一轮的多条 assistant 合并成一个气泡（刷新后不分裂）
+    expect(msgs).toHaveLength(2);
     expect(msgs[0].role).toBe('user');
     expect(msgs[1].toolCalls).toEqual([
       { id: 'tc1', name: 'render_chart', status: 'success', arguments: { chart_type: 'bar' }, result: '图表已生成' },
     ]);
     expect(msgs[1].reasoningText).toBe('选柱状图对比任务量');
-    expect(msgs[2].text).toBe('柱状图已经出来了');
+    expect(msgs[1].text).toBe('柱状图已经出来了');
   });
 
   it('透传 reasoning_content 到 reasoningText', () => {
@@ -113,11 +114,12 @@ describe('mapBackendMessages', () => {
       assistant(undefined, { content: '答案是 2' }),
     ];
     const msgs = mapBackendMessages(raw);
-    expect(msgs).toHaveLength(3);
+    // 同一轮 assistant 合并：工具链 + 最终正文在同一个气泡
+    expect(msgs).toHaveLength(2);
     expect(msgs[1].toolCalls).toEqual([
       { id: 'tc1', name: 'calc', status: 'success', arguments: {}, result: '2' },
     ]);
-    expect(msgs[2].text).toBe('答案是 2');
+    expect(msgs[1].text).toBe('答案是 2');
   });
 
   it('5.5 空 assistant：无文本/产物/思考/工具调用的纯空泡被跳过', () => {
@@ -175,10 +177,9 @@ describe('blocks 生成（刷新后不能回退弃用的三桶布局）', () => 
     ];
     const msgs = mapBackendMessages(raw);
     const withTools = msgs[0];
-    // ReAct 一轮：思考 → 工具 → 正文（若 assistant 自带 content）
-    expect(withTools.blocks?.map((b) => b.kind)).toEqual(['reasoning', 'tool', 'text']);
-    const final = msgs[1];
-    expect(final.blocks?.map((b) => b.kind)).toEqual(['text']);
+    // 同一轮 assistant 合并成一个气泡：思考 → 工具 → 中间正文 → 最终正文
+    expect(withTools.blocks?.map((b) => b.kind)).toEqual(['reasoning', 'tool', 'text', 'text']);
+    expect(msgs).toHaveLength(1);
     // tool 块的 toolCallId 与 toolCalls 对齐（渲染器靠它取结果）
     const toolBlock = withTools.blocks?.find((b) => b.kind === 'tool') as
       | { kind: 'tool'; toolCallId: string }

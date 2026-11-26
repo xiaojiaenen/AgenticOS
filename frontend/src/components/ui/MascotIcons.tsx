@@ -99,13 +99,9 @@ export const MascotBase: React.FC<{
 
       <path d={PATHS.body} fill="currentColor" />
 
-      {/* 面盘混入一点主色：纯白在深色主题里像贴了张纸，
-          混色后与身体同色系，两种主题都自然。color-mix 不支持时回退到 FACE */}
-      <path
-        d={PATHS.face}
-        fill={FACE}
-        style={{ fill: 'color-mix(in srgb, currentColor 14%, var(--mascot-face))' }}
-      />
+      {/* 面盘用主题变量 --mascot-face（深浅色各自预混好）：
+          不用 color-mix —— Chrome 85 不支持，会让面盘颜色失效。 */}
+      <path d={PATHS.face} fill={FACE} />
 
       {children}
     </g>

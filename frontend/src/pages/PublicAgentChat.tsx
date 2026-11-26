@@ -37,6 +37,18 @@ export const PublicAgentChat = () => {
   const [streaming, setStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const aliveRef = useRef(true);
+
+  // 组件卸载时中断流：否则用户离开页面后后端仍在跑（烧额度），
+  // 且 reader.read() 完成后会对已卸载组件 setItems。
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      abortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -67,11 +79,14 @@ export const PublicAgentChat = () => {
     setInput('');
     setItems((prev) => [...prev, { role: 'user', text }, { role: 'assistant', text: '' }]);
     setStreaming(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const resp = await fetch(`/api/v1/public/agents/${slug}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, session_id: sessionId, access_code: accessCode || undefined }),
+        signal: controller.signal,
       });
       if (!resp.ok || !resp.body) {
         const detail = (await resp.json().catch(() => ({})))?.detail;
@@ -82,12 +97,14 @@ export const PublicAgentChat = () => {
       const decoder = new TextDecoder();
       let buffer = '';
       let currentEvent = 'message';
-      const updateAssistant = (fn: (prev: string) => string) =>
+      const updateAssistant = (fn: (prev: string) => string) => {
+        if (!aliveRef.current) return;
         setItems((prev) => {
           const next = [...prev];
           next[next.length - 1] = { role: 'assistant', text: fn(next[next.length - 1]?.text ?? '') };
           return next;
         });
+      };
 
       for (;;) {
         const { done, value } = await reader.read();
@@ -122,14 +139,24 @@ export const PublicAgentChat = () => {
         }
       }
     } catch (err) {
+      if (controller.signal.aborted) return;
       const message = err instanceof Error ? err.message : '网络错误';
-      setItems((prev) => [...prev, { role: 'assistant', text: `⚠️ ${message}` }]);
-      if (message.includes('访问码')) setCodeRequired(true);
+      if (aliveRef.current) setItems((prev) => [...prev, { role: 'assistant', text: `⚠️ ${message}` }]);
+      if (message.includes('访问码') && aliveRef.current) setCodeRequired(true);
     } finally {
-      setStreaming(false);
-      // 清理「正在思考…」占位
-      setItems((prev) => prev.map((i) => (i.role === 'assistant' && i.text === '正在思考…' ? { ...i, text: '' } : i)));
+      abortRef.current = null;
+      if (aliveRef.current) {
+        setStreaming(false);
+        // 清理「正在思考…」占位
+        setItems((prev) => prev.map((i) => (i.role === 'assistant' && i.text === '正在思考…' ? { ...i, text: '' } : i)));
+      }
     }
+  };
+
+  const stop = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStreaming(false);
   };
 
   const containerClass = embedMode
@@ -215,12 +242,12 @@ export const PublicAgentChat = () => {
           />
           <button
             type="button"
-            aria-label="发送"
-            disabled={streaming || !input.trim()}
-            onClick={() => void send()}
+            aria-label={streaming ? '停止生成' : '发送'}
+            disabled={!streaming && !input.trim()}
+            onClick={() => (streaming ? stop() : void send())}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2b87c2] text-white transition active:scale-95 disabled:opacity-40"
           >
-            {streaming ? <Loader2 size={16} className="animate-spin" /> : <SendHorizontal size={16} />}
+            {streaming ? <span className="flex h-3 w-3 items-center justify-center bg-white" /> : <SendHorizontal size={16} />}
           </button>
         </div>
       </footer>

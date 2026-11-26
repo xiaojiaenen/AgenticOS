@@ -7,9 +7,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { BrainCircuit, Globe, Presentation } from 'lucide-react';
+import { BrainCircuit, Download, Globe, Presentation } from 'lucide-react';
 import { Artifact, Message, ToolCall } from '../../types';
 import { cn, copyToClipboard } from '../../lib/utils';
+import { apiFetch } from '../../services/apiClient';
 import { getAppConfig } from '../../services/configService';
 import { useIsDark } from '../../hooks/useIsDark';
 import { CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
@@ -126,11 +127,46 @@ export const LiveToolCall = ({ tool }: { tool: ToolCall }) => {
   );
 };
 
-export const ToolResultPreview = ({ result, isError = false }: { result: string; isError?: boolean }) => {
+/** analyze_with_pandas 的导出结果：从工具结果 JSON 里提取 downloads。 */
+type ExportFile = { filename: string; format?: string; size_bytes?: number };
+
+function parseExports(result: string): ExportFile[] {
+  try {
+    const parsed = JSON.parse(result);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.exports)) return [];
+    return parsed.exports.filter(
+      (e: unknown): e is ExportFile =>
+        !!e && typeof e === 'object' && typeof (e as ExportFile).filename === 'string',
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** 带鉴权下载 outputs/ 下的产物文件。 */
+async function downloadOutputFile(sessionId: string, filename: string): Promise<void> {
+  const blob = await apiFetch<Blob>(
+    `/api/v1/agent/sessions/${encodeURIComponent(sessionId)}/outputs/${encodeURIComponent(filename)}`,
+    { responseType: 'blob' },
+    '下载文件失败',
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+export const ToolResultPreview = ({ result, isError = false, sessionId }: { result: string; isError?: boolean; sessionId?: string }) => {
   const [expanded, setExpanded] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const normalizedResult = normalizeToolResult(result);
   const { text: previewText, truncated } = buildToolResultPreview(normalizedResult);
   const displayedText = expanded || !truncated ? normalizedResult : previewText;
+  const exports = sessionId && !isError ? parseExports(normalizedResult) : [];
 
   // 检测 __ECHART_JSON__ 标记，直接渲染图表
   const chartMarker = '__ECHART_JSON__';
@@ -143,6 +179,28 @@ export const ToolResultPreview = ({ result, isError = false }: { result: string;
 
   return (
     <div className="space-y-2">
+      {exports.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {exports.map((file) => (
+            <button
+              key={file.filename}
+              type="button"
+              title={`下载 ${file.filename}`}
+              onClick={() => {
+                if (!sessionId) return;
+                void downloadOutputFile(sessionId, file.filename).catch((err: unknown) =>
+                  setDownloadError(err instanceof Error ? err.message : '下载失败'),
+                );
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2.5 py-1 text-[10px] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)]"
+            >
+              <Download size={11} />
+              <span className="max-w-[12rem] truncate">{file.filename}</span>
+            </button>
+          ))}
+          {downloadError ? <span className="text-[10px] text-rose-600 dark:text-rose-400">{downloadError}</span> : null}
+        </div>
+      ) : null}
       <div className="relative">
         <div className={cn(
           "rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all max-w-full overflow-hidden",
@@ -487,48 +545,46 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
     const isArtifactable = ['html', 'svg'].includes(match[1]) && config.enableArtifacts;
 
     return (
-      <div className="relative group my-5 overflow-hidden rounded-3xl border border-slate-800/80 bg-zinc-950 shadow-xl ring-1 ring-white/5">
-        <div className="flex items-center border-b border-white/8 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] px-4 py-3 backdrop-blur-sm">
-          <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-[#ff5f56]" /><div className="w-3 h-3 rounded-full bg-[#ffbd2e]" /><div className="w-3 h-3 rounded-full bg-[#27c93f]" /></div>
-          <div className="ml-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)] select-none">{match[1]}</div>
-          <div className="ml-auto flex items-center gap-4">
+      <div className="relative group my-4 overflow-hidden rounded-xl border border-[#27272a] bg-[#0d0d0c]">
+        <div className="flex items-center border-b border-white/10 px-4 py-2">
+          <div className="font-mono text-[11px] font-medium text-[#a1a1aa] select-none">{match[1]}</div>
+          <div className="ml-auto flex items-center gap-3">
             {isArtifactable && onOpenArtifact && (
-              <button onClick={() => onOpenArtifact({ code: codeString, language: match[1] as 'html' | 'svg' })} className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:text-cyan-200">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><span>可视化预览</span>
+              <button onClick={() => onOpenArtifact({ code: codeString, language: match[1] as 'html' | 'svg' })} className="flex items-center gap-1.5 text-[11px] font-medium text-[#a1a1aa] transition-colors hover:text-white">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><span>预览</span>
               </button>
             )}
-            <button onClick={handleBlockCopy} className="flex items-center justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-white/10 hover:text-white active:scale-90" title={isBlockCopied ? '已复制' : '复制代码'}>
+            <button onClick={handleBlockCopy} className="flex items-center justify-center rounded-md p-1.5 text-[#a1a1aa] transition-colors hover:bg-white/10 hover:text-white" title={isBlockCopied ? '已复制' : '复制代码'}>
               <AnimatePresence mode="wait" initial={false}>
-                {isBlockCopied ? <motion.div key="ok" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}><CheckIcon size={14} className="text-green-400" /></motion.div>
-                  : <motion.div key="copy" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}><CopyIcon size={14} /></motion.div>}
+                {isBlockCopied ? <motion.div key="ok" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><CheckIcon size={13} className="text-emerald-400" /></motion.div>
+                  : <motion.div key="copy" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><CopyIcon size={13} /></motion.div>}
               </AnimatePresence>
             </button>
           </div>
         </div>
         <div className="text-sm">
-          <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" customStyle={{ margin: 0, padding: '1.35rem 1.4rem', background: 'transparent', fontSize: '0.85rem', lineHeight: '1.7' }} {...props}>
+          <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" customStyle={{ margin: 0, padding: '1rem 1.1rem', background: 'transparent', fontSize: '13px', lineHeight: '1.7' }} {...props}>
             {codeString}
           </SyntaxHighlighter>
         </div>
       </div>
     );
   }
-  return <code className={cn("bg-[var(--surface-2)] text-teal-700 dark:text-teal-300 px-1.5 py-0.5 rounded-md text-sm font-mono font-medium", className)} {...props}>{children}</code>;
+  return <code className={cn("bg-[var(--surface-2)] text-[var(--foreground)] px-1 py-0.5 rounded text-[0.9em] font-mono", className)} {...props}>{children}</code>;
 };
 
 // ── Table components (extracted from render) ──────────────────────────────
 
 export const MarkdownTable = ({ children }: { children: React.ReactNode }) => (
-  <div className="my-5 overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-lg ring-1 ring-[var(--border-subtle)]">
-    <div className="h-2 bg-[linear-gradient(90deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85),rgba(34,211,238,0.75))]" />
-    <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
-      <table className="w-max min-w-full border-collapse text-left text-sm text-[var(--foreground)]">{children}</table>
+  <div className="my-4 overflow-hidden rounded-xl border border-[var(--border-medium)] bg-[var(--surface-1)]">
+    <div className="visible-scrollbar overflow-x-auto">
+      <table className="w-max min-w-full border-collapse text-left text-[13px] text-[var(--foreground)]">{children}</table>
     </div>
   </div>
 );
 
 export const MarkdownTableHead = ({ children }: { children: React.ReactNode }) => (
-  <thead className="bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.92))] text-slate-100">{children}</thead>
+  <thead className="bg-[var(--surface-3)] text-[var(--muted-foreground)]">{children}</thead>
 );
 
 export const MarkdownTableRow = ({ children }: { children: React.ReactNode }) => (

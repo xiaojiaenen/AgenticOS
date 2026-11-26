@@ -10,6 +10,7 @@
  */
 import type { ComponentType, ReactNode } from 'react';
 import type { Message } from '../../types';
+import type { WorkspaceEntry } from '../../lib/workspaceArtifacts';
 
 export type SessionPanelId = 'artifacts' | 'files' | 'run-log';
 
@@ -18,6 +19,8 @@ export interface SessionPanelProps {
   sessionId: string;
   messages: Message[];
   onClose: () => void;
+  /** 会话工作区产物（由 hook 拉取后经侧栏下发），产物库面板用它补齐 html/文件类产物 */
+  workspaceOutputs?: WorkspaceEntry[];
 }
 
 export interface SessionPanelDefinition {

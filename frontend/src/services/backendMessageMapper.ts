@@ -327,22 +327,40 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {  const me
         newBlocks,
       };
 
-      // 空壳（无正文、无产物、无 A2UI/图表，只有工具调用或思考）→
-      // 并入上一条模型消息，不单独起气泡。这样连续十几轮工具调用
-      // 只显示为一个气泡里的工具链，而不是十几个只有头像的空泡。
-      const isShell =
-        !snapshot.text &&
-        !hasArtifacts;
+      // 同一轮回答的所有 assistant 行合并成一个气泡（与流式表现对齐）。
+      //
+      // 后端把每个 LLM 步骤各存一条 assistant：第一轮给了正文、中间几轮
+      // 发起工具、最后一轮再给正文 + 解释。实时流式时这些 delta 全部累积
+      // 到一条消息里，所以用户只看到一个气泡；但历史映射此前只合并
+      // 「空壳」（无正文无产物）行，最后那条有正文的会另起一个气泡 ——
+      // 用户刷新后就看到「一个气泡分裂成两个」。
+      //
+      // 规则：以 user 消息为轮次分界。user 之后的第一条 assistant 新建气泡；
+      // 同一轮里后续的 assistant（无论空壳还是带正文）全部并入它。
       const prev = messages[messages.length - 1];
-      if (isShell && prev && prev.role === 'model') {
+      if (prev && prev.role === 'model') {
         prev.blocks = [...(prev.blocks ?? []), ...newBlocks];
         if (snapshot.toolCalls) {
           prev.toolCalls = [...(prev.toolCalls ?? []), ...snapshot.toolCalls];
         }
-        if (snapshot.reasoningText && !prev.reasoningText) {
-          prev.reasoningText = snapshot.reasoningText;
-        } else if (snapshot.reasoningText && prev.reasoningText) {
-          prev.reasoningText = `${prev.reasoningText}\n\n${snapshot.reasoningText}`;
+        if (snapshot.text) {
+          prev.text = prev.text ? `${prev.text}\n\n${snapshot.text}` : snapshot.text;
+        }
+        if (snapshot.reasoningText) {
+          prev.reasoningText = prev.reasoningText
+            ? `${prev.reasoningText}\n\n${snapshot.reasoningText}`
+            : snapshot.reasoningText;
+        }
+        // 后续轮次可能带产物（PPT/网站等），一并挂到同一气泡上
+        if (snapshot.pptArtifact) prev.pptArtifact = snapshot.pptArtifact;
+        if (snapshot.websiteArtifact) prev.websiteArtifact = snapshot.websiteArtifact;
+        if (snapshot.documentArtifact) prev.documentArtifact = snapshot.documentArtifact;
+        if (snapshot.sheetArtifact) prev.sheetArtifact = snapshot.sheetArtifact;
+        if (snapshot.a2uiMessages?.length) {
+          prev.a2uiMessages = [...(prev.a2uiMessages ?? []), ...snapshot.a2uiMessages];
+        }
+        if (snapshot.chartMessages?.length) {
+          prev.chartMessages = [...(prev.chartMessages ?? []), ...snapshot.chartMessages];
         }
         continue;
       }

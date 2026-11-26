@@ -5,23 +5,25 @@
  * 角色负责分组，策略描述「谁能对哪个资源做什么」，审计记录每一次变更。
  */
 import { useState } from 'react';
-import { ScrollText, ShieldCheck, Users2 } from 'lucide-react';
+import { Grid2X2, ScrollText, ShieldCheck, Users2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/tabs';
 import { AdminPageHeader } from './shared';
+import { PermissionMatrixTab } from './PermissionMatrixTab';
 import { RoleManagementTab } from './RoleManagementTab';
 import { PolicyManagementTab } from './PolicyManagementTab';
 import { AuditLogTab } from './AuditLogTab';
 
-type PermissionTab = 'roles' | 'policies' | 'audit';
+type PermissionTab = 'matrix' | 'roles' | 'policies' | 'audit';
 
 const TAB_ITEMS: { id: PermissionTab; label: string; icon: typeof Users2 }[] = [
+  { id: 'matrix', label: '权限矩阵', icon: Grid2X2 },
   { id: 'roles', label: '角色', icon: Users2 },
   { id: 'policies', label: '策略', icon: ShieldCheck },
   { id: 'audit', label: '审计日志', icon: ScrollText },
 ];
 
 export function PermissionManagement() {
-  const [tab, setTab] = useState<PermissionTab>('roles');
+  const [tab, setTab] = useState<PermissionTab>('matrix');
 
   return (
     <div className="space-y-4">
@@ -41,6 +43,9 @@ export function PermissionManagement() {
           ))}
         </TabsList>
 
+        <TabsContent value="matrix" className="pt-4">
+          <PermissionMatrixTab />
+        </TabsContent>
         <TabsContent value="roles" className="pt-4">
           <RoleManagementTab />
         </TabsContent>

@@ -15,6 +15,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { Artifact, Session } from '../types';
 import type { AgentProfile } from '../services/agentProfileService';
 import type { SessionPanelId } from '../components/panel/types';
+import type { WorkspaceEntry } from '../lib/workspaceArtifacts';
 
 export type ChatMode = 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
 
@@ -34,6 +35,9 @@ function applyAction<T>(current: T, action: SetStateAction<T>): T {
 }
 
 interface ChatUIState {
+  /** 退出登录 / 切换账号时清空用户态数据，防止串号。 */
+  reset: () => void;
+
   // ── 输入 ──
   inputValue: string;
   setInputValue: (v: string) => void;
@@ -112,6 +116,16 @@ interface ChatUIState {
   sessionPanel: SessionPanelId | null;
   setSessionPanel: (panel: SessionPanelId | null) => void;
 
+  /**
+   * 当前会话工作区里的可展示产物（html/csv/xlsx/图片…）。
+   *
+   * 由 useSessionWorkspaceOutputs 在会话切换 / run done 后拉一次，
+   * 供消息 footer 的产物计数、侧栏产物库、侧栏 tab 共用，避免每条消息
+   * 各自发请求。切换会话时立即清空，防止把上个会话的产物显示到新会话。
+   */
+  sessionWorkspaceOutputs: WorkspaceEntry[];
+  setSessionWorkspaceOutputs: (entries: WorkspaceEntry[]) => void;
+
   // ── IDE 式侧栏标签 ──
   /** 侧栏是否展开（与「有没有标签」解耦：空侧栏也能展开显示可打开列表） */
   sidebarOpen: boolean;
@@ -140,6 +154,26 @@ interface ChatUIState {
 }
 
 export const useChatStore = create<ChatUIState>((set) => ({
+  // 退出登录/切换账号时清空用户态数据。UI 偏好（侧栏宽度、模式等）保留。
+  reset: () =>
+    set({
+      sessions: [],
+      currentSessionId: null,
+      visibleSessionsCount: 10,
+      runStatus: { phase: 'idle', label: '已就绪' },
+      pendingDecisions: [],
+      streamError: null,
+      artifact: null,
+      sessionPanel: null,
+      sessionWorkspaceOutputs: [],
+      activeStreamIds: new Set<string>(),
+      sidebarTabs: [],
+      activeSidebarTabId: null,
+      inputValue: '',
+      agentProfiles: [],
+      selectedAgentProfileId: null,
+    }),
+
   inputValue: '',
   setInputValue: (v) => set({ inputValue: v }),
 
@@ -192,6 +226,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   sessionPanel: null,
   setSessionPanel: (sessionPanel) => set({ sessionPanel }),
+
+  sessionWorkspaceOutputs: [],
+  setSessionWorkspaceOutputs: (sessionWorkspaceOutputs) => set({ sessionWorkspaceOutputs }),
 
   sidebarOpen: false,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),

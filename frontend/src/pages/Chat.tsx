@@ -15,6 +15,7 @@ import { useChatSearch } from '../hooks/useChatSearch';
 import { useChatSessions } from '../hooks/useChatSessions';
 import { useChatScroll } from '../hooks/useChatScroll';
 import { useChatStream } from '../hooks/useChatStream';
+import { useSessionWorkspaceOutputs } from '../hooks/useSessionWorkspaceOutputs';
 import { useRunTitleAwareness } from '../hooks/useRunTitleAwareness';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useChatStore } from '../stores/chatStore';
@@ -26,8 +27,13 @@ import { UserInputPanel } from '../components/chat/UserInputPanel';
 import { getSessionArtifacts, submitUserInput, type UserInputRequest } from '../services/agentService';
 import { useRunControlStore } from '@/features/island/runControlStore';
 import { emailArtifactFromApproval, isSameArtifact } from '@/lib/emailArtifact';
+import {
+  findRestorableArtifact,
+  hasPendingArtifactHtml,
+  shouldClearStaleArtifact,
+} from '../lib/artifactSnapshots';
 import type { VirtuosoHandle } from 'react-virtuoso';
-import { canEnterAdmin } from '@/services/authTokenStore';
+import { isAdmin as isPlatformAdmin } from '@/services/authTokenStore';
 export const Chat = () => {
   const location = useLocation();
   const initialMessage = location.state?.initialMessage as string | undefined;
@@ -108,7 +114,7 @@ export const Chat = () => {
 
   // ── Refs ──
   const chatInputRef = useRef<ChatInputHandle>(null);
-  const isAdmin = canEnterAdmin();
+  const isAdmin = isPlatformAdmin();
 
   // 「全部放行」仅管理员可用：非管理员若残留 full（如同会话内角色变更），
   // 菜单会回落显示「逐次确认」但发送仍按 full —— 这里统一纠正，保证显示与实际一致
@@ -159,6 +165,10 @@ export const Chat = () => {
   const currentSessionMessages = currentSession?.messages ?? [];
   const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
   const isWideConversation = !artifact && !sidebarOpen && !isMobile;
+
+  // 会话工作区产物：会话切换 / 一轮结束后拉一次，供消息 footer 计数、
+  // 侧栏产物库与自动展示共用。hook 内部只按会话拉取，不会每条消息发请求。
+  const { sessionWorkspaceOutputs } = useSessionWorkspaceOutputs(currentSessionId, currentSessionMessages);
   const pendingApprovals = useMemo(
     () => currentSessionMessages
       .flatMap((m) => m.toolCalls || [])
@@ -311,13 +321,32 @@ export const Chat = () => {
     // 切换会话时总是回源一次：loadSessionMessages 内部会并行请求消息与产物，
     // 缓存已有消息时走短路，不会重复拉消息，但产物必须查——
     // 否则"生成过但缓存里没有 artifact 痕迹"的会话永远打不开预览。
-    loadSessionMessages(currentSessionId);
+    void loadSessionMessages(currentSessionId).finally(() => {
+      // 回源补全 artifact HTML 后显式触发产物恢复 effect 重跑一次。
+      // 用 token 而非依赖 currentSession（流式每帧都会换引用，会重复回源 +
+      // 迟到响应清掉用户刚打开的面板）。
+      setArtifactRefreshToken((n) => n + 1);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSessionId]);
 
-  // 恢复 artifact 面板 — 依赖 sessionId（而非 messages.length），避免流式增长时反复 setArtifact(null)
+  // 恢复 artifact 面板。
+  //
+  // 依赖刻意只放 currentSessionId + 显式刷新 token，**不放 currentSession**：
+  // 流式期间每帧 setSessions 都会换 currentSession 引用，旧实现因此每帧重跑本
+  // effect、重发 getSessionArtifacts —— 迟到的「无产物」响应会把用户刚手动打开
+  // 的产物面板清掉。需要消息元数据 / 当前面板时一律通过 ref 读最新值。
   const artifactRestoredSessionRef = useRef<string | null>(null);
+  const currentSessionRef = useRef(currentSession);
+  const artifactRef = useRef(artifact);
+  const [artifactRefreshToken, setArtifactRefreshToken] = useState(0);
   useEffect(() => {
+    currentSessionRef.current = currentSession;
+    artifactRef.current = artifact;
+  }, [currentSession, artifact]);
+
+  useEffect(() => {
+    const session = currentSessionRef.current;
     if (!currentSessionId) {
       artifactRestoredSessionRef.current = null;
       setArtifact(null);
@@ -329,49 +358,51 @@ export const Chat = () => {
     // 切换会话时先关闭上一个会话的产物面板：等新会话消息加载期间，
     // 旧面板若继续挂着，用户会以为"新网站预览还是上一个的内容"。
     // 仅在消息确实已加载完（且本会话无产物）时才由后续逻辑收尾。
-    const messages = currentSession?.messages || [];
+    const messages = session?.messages || [];
     if (messages.length === 0) {
       setArtifact(null);
       return;
     }
 
     // 缓存剥离了 artifact HTML，等待 loadSessionMessages 回源补全后再恢复预览；
-    // 此时不标记 restored，回源完成后 effect 会随 currentSession 变化重新执行
-    const pendingArtifactHtml = messages.some(
-      (m) => m.role === 'model' && ((m.pptArtifact && !m.pptArtifact.html) || (m.websiteArtifact && !m.websiteArtifact.html)),
-    );
-    if (pendingArtifactHtml) return;
+    // 此时不标记 restored，回源完成（token 变化）后本 effect 重新执行。
+    if (hasPendingArtifactHtml(messages)) return;
 
-    // 从后往前找第一条带 pptArtifact 或 websiteArtifact 的消息
-    const lastPptMsg = [...messages].reverse().find(
-      m => m.role === 'model' && m.pptArtifact?.status === 'ready' && m.pptArtifact.html
-    );
-    const lastWebsiteMsg = [...messages].reverse().find(
-      m => m.role === 'model' && m.websiteArtifact?.status === 'ready' && m.websiteArtifact.html
-    );
+    // 标记已恢复必须发生在异步分支**之前**：无 PPT/网站产物时走 getSessionArtifacts
+    // 的 else 分支，若把标记留在分支之后（旧代码 427 行）就永远执行不到 ——
+    // 每次 setArtifact 都重跑本 effect，重复回源且响应竞态清面板。
+    artifactRestoredSessionRef.current = currentSessionId;
 
-    // 优先恢复 PPT，其次网站
-    if (lastPptMsg?.pptArtifact) {
+    const restorable = findRestorableArtifact(messages);
+
+    // 优先恢复 PPT，其次网站（findRestorableArtifact 已按优先级 + 从后往前挑选）
+    if (restorable === 'ppt') {
+      const ppt = [...messages].reverse().find(
+        m => m.role === 'model' && m.pptArtifact?.status === 'ready' && m.pptArtifact.html,
+      )!.pptArtifact!;
       setArtifact({
         language: 'ppt',
-        artifactId: lastPptMsg.pptArtifact.artifactId,
-        html: lastPptMsg.pptArtifact.html || '',
-        title: lastPptMsg.pptArtifact.title || '',
-        slideCount: lastPptMsg.pptArtifact.slideCount || 0,
-        theme: lastPptMsg.pptArtifact.theme,
+        artifactId: ppt.artifactId,
+        html: ppt.html || '',
+        title: ppt.title || '',
+        slideCount: ppt.slideCount || 0,
+        theme: ppt.theme,
         // 发布按钮的渲染条件是 artifactId && sessionId，缺了它
         // 「公开到作品库」不出现（用户报"没有发布按钮"的根因之一）
         sessionId: currentSessionId ?? undefined,
       });
-    } else if (lastWebsiteMsg?.websiteArtifact) {
+    } else if (restorable === 'website') {
+      const website = [...messages].reverse().find(
+        m => m.role === 'model' && m.websiteArtifact?.status === 'ready' && m.websiteArtifact.html,
+      )!.websiteArtifact!;
       setArtifact({
         language: 'website',
-        artifactId: lastWebsiteMsg.websiteArtifact.artifactId || '',
-        html: lastWebsiteMsg.websiteArtifact.html || '',
-        title: lastWebsiteMsg.websiteArtifact.title || '',
-        projectSlug: lastWebsiteMsg.websiteArtifact.projectSlug || '',
-        stack: lastWebsiteMsg.websiteArtifact.stack,
-        previewUrl: lastWebsiteMsg.websiteArtifact.previewUrl,
+        artifactId: website.artifactId || '',
+        html: website.html || '',
+        title: website.title || '',
+        projectSlug: website.projectSlug || '',
+        stack: website.stack,
+        previewUrl: website.previewUrl,
         sessionId: currentSessionId,
       });
     } else {
@@ -409,12 +440,9 @@ export const Chat = () => {
             // 会话里确实没有任何产物。清理要克制：只清「确认属于其他会话」的
             // 面板。流式刚设置的产物不带 sessionId（也没必要带），无条件清空
             // 会把它立刻打掉 —— 文档面板当初就是这么消失的。
-            const stale =
-              artifact &&
-              'sessionId' in artifact &&
-              typeof artifact.sessionId === 'string' &&
-              artifact.sessionId !== currentSessionId;
-            if (stale || !artifact) setArtifact(null);
+            // 读 ref 而非闭包：回源期间用户可能已手动打开某产物，闭包里的
+            // artifact 是旧值，用它判断会把刚打开的面板误清掉。
+            if (shouldClearStaleArtifact(artifactRef.current as { sessionId?: string } | null, currentSessionId)) setArtifact(null);
           }
         })
         .catch((err) => {
@@ -424,10 +452,10 @@ export const Chat = () => {
         cancelled = true;
       };
     }
-    artifactRestoredSessionRef.current = currentSessionId;
-    // 刻意不依赖 messages.length：用 ref 保证仅在会话切换/首次加载时恢复
+    // 刻意不依赖 messages.length / currentSession：用 ref + 显式 token 保证
+    // 仅在会话切换 / 回源完成时恢复，不在流式每帧重跑
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSessionId, currentSession]);
+  }, [currentSessionId, artifactRefreshToken]);
 
   // 加载智能体列表
   const [agentProfilesLoaded, setAgentProfilesLoaded] = useState(false);
@@ -542,7 +570,7 @@ export const Chat = () => {
       setIsSidebarOpen(true);
       setIsSidebarHiddenByArtifact(false);
     }
-  }, [artifact, sidebarOpen, isMobile]);
+  }, [artifact, sidebarOpen, isMobile, isSidebarOpen, isSidebarHiddenByArtifact, setIsSidebarOpen, setIsSidebarHiddenByArtifact]);
 
   // ── Context Value ──
   // R3-2：数据类状态（sessions/currentSession/runStatus/pendingDecisions/
@@ -747,6 +775,7 @@ export const Chat = () => {
                 sessionId={currentSessionId}
                 messages={currentSession?.messages ?? []}
                 isPptStreaming={chatMode === 'ppt' && isStreamingResponse && !hasArtifactContent}
+                workspaceOutputs={sessionWorkspaceOutputs}
               />
             </ResizableSidebar>
           )}

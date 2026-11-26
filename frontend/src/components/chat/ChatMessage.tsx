@@ -50,6 +50,13 @@ interface ChatMessageProps {
   sessionId?: string;
   searchQuery?: string;
   activeMatchId?: string | null;
+  /**
+   * 会话产物总数（消息产物 + 工作区文件产物），>0 时在 footer 显示
+   * 「查看所有产物 (N) >」入口，点开侧栏产物库 —— 用户认可图一的形态。
+   * 只在最后一条 assistant 消息上展示，避免每条历史消息都挂一个链接。
+   */
+  artifactCount?: number;
+  onViewArtifacts?: () => void;
 }
 
 // 将 __ECHART_JSON__ 标记转为 ```echarts 代码块，让 CodeBlock 渲染图表
@@ -185,7 +192,7 @@ function MessageMotionWrapper({
   );
 }
 
-export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, onA2uiAction, onA2uiDataChange, index = 0, searchQuery = "", activeMatchId, sessionId }: ChatMessageProps) => {
+export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, onA2uiAction, onA2uiDataChange, index = 0, searchQuery = "", activeMatchId, sessionId, artifactCount = 0, onViewArtifacts }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   // 按序渲染（新消息）：正文/工具/思考交错展示；历史消息回退旧式三桶
   const useOrderedRender = !isUser && !isTyping && Boolean(message?.blocks?.length) && shouldUseOrderedRender(message!);
@@ -271,7 +278,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         {!useOrderedRender && !isUser && message?.toolCalls && message.toolCalls.length > 0 && config.enableSearch && (
           <div className="mb-1 w-full text-left">
             <details className="group [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted-foreground)] bg-[var(--surface-1)] hover:bg-[var(--surface-1)] border border-[var(--border-subtle)] px-3 py-1.5 rounded-full shadow-sm w-fit cursor-pointer transition-all select-none">
+              <summary className="flex items-center gap-2 text-xs font-medium text-[var(--muted-foreground)] bg-[var(--surface-1)] border border-[var(--border-subtle)] px-3 py-1.5 rounded-full w-fit cursor-pointer transition-colors hover:bg-[var(--surface-2)] select-none">
                 <WrenchIcon size={12} className="text-[var(--muted-foreground)]" />
                 <span>工具链调用历史 ({message.toolCalls.length})</span>
                 <ChevronDownIcon size={12} className="transition-transform duration-300 group-open:-rotate-180" />
@@ -294,7 +301,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   const resultTitleClass = isSuccess ? "text-emerald-700 dark:text-emerald-300" : isError ? "text-rose-700 dark:text-rose-300" : tool.result ? "text-emerald-700 dark:text-emerald-300" : "text-[var(--muted-foreground)]";
                   return (
                     <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }}
-                      className="max-w-[34rem] rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3 text-xs text-[var(--muted-foreground)] shadow-md backdrop-blur-sm">
+                      className="max-w-[34rem] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3 text-xs text-[var(--muted-foreground)]">
                       <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
                         <div className="flex items-center gap-2"><WrenchIcon size={13} className="text-[var(--muted-foreground)]" /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--foreground)]">{tool.name}</span></div>
                         <span className={cn("rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]", statusClass)}>{statusLabel}</span>
@@ -310,7 +317,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                               <div className="flex justify-center"><div className={cn("mt-1 h-3 w-3 rounded-full border-2", resultDotClass)} /></div>
                               <div>
                                 <div className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", resultTitleClass)}>返回结果</div>
-                                <div className="mt-1">{tool.result ? <ToolResultPreview result={tool.result} isError={isError} /> : <div className="rounded-xl border border-dashed border-sky-200/60 bg-sky-50/40 px-3 py-2 text-[11px] text-[var(--muted-foreground)]">等待工具返回内容</div>}</div>
+                                <div className="mt-1">{tool.result ? <ToolResultPreview result={tool.result} isError={isError} sessionId={sessionId} /> : <div className="rounded-xl border border-dashed border-sky-200/60 bg-sky-50/40 px-3 py-2 text-[11px] text-[var(--muted-foreground)]">等待工具返回内容</div>}</div>
                               </div>
                             </div>
                           </div>
@@ -328,7 +335,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             <div id={message?.id ? `bubble-${message.id}` : undefined}
               className={cn("px-5 py-3 rounded-[2rem] relative group max-w-full min-w-0 transition-colors duration-300 overflow-hidden",
                 hasStructuredContent ? "w-full" : "w-fit", !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
-                isUser ? "bg-[var(--bubble-user)] text-[var(--bubble-user-text)] rounded-tr-none shadow-lg hover:shadow-xl" : "bg-[var(--bubble-ai)] backdrop-blur-xl text-[var(--foreground)] rounded-tl-none border border-[var(--border-subtle)] hover:bg-[var(--surface-1)] shadow-xs")}>
+                isUser ? "bg-[var(--bubble-user)] text-[var(--bubble-user-text)] rounded-tr-none shadow-sm" : "bg-[var(--bubble-ai)] text-[var(--foreground)] rounded-tl-none border border-[var(--border-subtle)]")}>
 
             {!useOrderedRender && !isUser && !isTyping && message?.toolCalls && message.toolCalls.length > 0 && isStreaming && (
               <div className="flex flex-col gap-1.5 mb-3"><AnimatePresence>{message.toolCalls.map((tool, i) => <LiveToolCall key={`${tool.id || i}-${tool.status}`} tool={tool} />)}</AnimatePresence></div>
@@ -345,9 +352,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 {message?.attachments && message.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-3 mb-1">
                     {message.attachments.map((att, i) => (
-                      <motion.div whileHover={{ scale: 1.05 }} key={i} className="max-w-[240px] rounded-2xl overflow-hidden border border-current/20 shadow-lg ring-4 ring-current/5">
+                      <div key={i} className="max-w-[240px] rounded-xl overflow-hidden border border-current/20 transition-colors duration-150 hover:border-current/40">
                         {att.type.startsWith('image/') ? <img src={att.url} alt={att.name} loading="lazy" className="w-full h-auto object-cover max-h-52" /> : <div className="bg-current/10 p-3 flex items-center gap-3"><WrenchIcon size={16} /><span className="text-xs font-semibold truncate">{att.name}</span></div>}
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -365,14 +372,14 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 onOpenArtifact={onOpenArtifact as never}
               />
             ) : (
-              <div className="prose prose-slate prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
+              <div className="prose break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
                 {reasoningText && (
-                  <details className="group mb-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-[var(--muted-foreground)] [&_summary::-webkit-details-marker]:hidden">
-                    <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                      <BrainCircuit size={13} className="text-[var(--muted-foreground)]" /><span>思考过程</span>
-                      <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
+                  <details className="group mb-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]/50 px-3 py-2 text-[var(--muted-foreground)] [&_summary::-webkit-details-marker]:hidden">
+                    <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-medium text-[var(--muted-foreground)]">
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-medium)] bg-[var(--surface-1)]"><BrainCircuit size={11} /></span><span>思考过程</span>
+                      <ChevronDownIcon size={12} className="ml-auto transition-transform duration-200 group-open:-rotate-180" />
                     </summary>
-                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-[var(--border-subtle)] pt-2 text-xs leading-relaxed text-[var(--muted-foreground)] italic">{reasoningText}</div>
+                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-[var(--border-subtle)] pt-2 font-mono text-[11px] leading-[1.7] text-[var(--muted-foreground)]">{reasoningText}</div>
                   </details>
                 )}
                 {visibleText ? (
@@ -400,7 +407,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     }}>{visibleText}</ReactMarkdown>
                   </ErrorBoundary>
                 ) : <span className="text-sm font-medium text-[var(--muted-foreground)]"> </span>}
-                {!isUser && isStreaming && visibleText && <motion.span className="inline-block w-[2px] h-[1.2em] bg-[var(--foreground)] rounded-full align-text-bottom ml-px" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
+                {!isUser && isStreaming && visibleText && <span className="stream-caret" aria-hidden="true" />}
               </div>
             )}
             </div>
@@ -454,8 +461,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         ) : null}
 
         {message?.id && !isTyping && (
-          <div className={cn("text-[9px] font-semibold uppercase tracking-[0.1em] px-2 mt-1.5 flex items-center gap-2",
-            "text-[var(--muted-foreground)]"
+          <div className={cn("text-[11px] px-2 mt-1 flex items-center gap-2.5 tabular-nums text-[var(--muted-foreground)]"
           )}>
             <span>{(() => {
               // 优先用 createdAt：历史消息来自后端 created_at，流式消息由前端
@@ -471,6 +477,15 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               return isNaN(ts) ? '' : new Date(ts).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' });
             })()}</span>
             {!isUser && visibleText && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="transition-opacity md:opacity-0 md:group-hover:opacity-100">· {visibleText.length} 字</motion.span>}
+            {!isUser && artifactCount > 0 && onViewArtifacts && (
+              <button
+                onClick={onViewArtifacts}
+                title="查看本次会话的所有产物"
+                className="inline-flex items-center gap-1 font-medium text-[var(--ring)] transition-colors hover:underline"
+              >
+                查看所有产物 ({artifactCount}) <span aria-hidden="true">›</span>
+              </button>
+            )}
             {canCopyMessage && (
               <button onClick={handleCopy} title="复制" aria-label="复制消息" className={cn("transition-colors duration-200",
                 "text-[var(--muted-foreground)] hover:text-[var(--accent-foreground)]"

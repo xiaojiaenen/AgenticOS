@@ -514,41 +514,61 @@ body.admin-modal-open .admin-dashboard-shell > button {
 .admin-page-stage > *:nth-child(4) { animation-delay: 0.17s; }
 .admin-page-stage > *:nth-child(5) { animation-delay: 0.22s; }
 
-/* ===== Prose / Markdown ===== */
+/* ===== Prose / Markdown =====
+   排版纪律（参考 Claude CDS 的数值、不取其品牌色与弹性曲线）：
+   - 正文 14.5px / 1.65，度量 68ch（AA 对比度、长行不超 75ch）；
+   - 字级相邻 ≥1.25×：正文 14.5 → 小标题 17 → 标题 20；
+   - 全部走设计 token，不再用 slate-* 硬编码 + .dark 反转两套规则；
+   - 块间距按 4px 基数：段 8 / 块 16 / 段前 20。 */
 .prose {
-  @apply font-sans max-w-[75ch];
+  @apply font-sans max-w-[68ch] text-[14.5px] leading-[1.65] text-[var(--foreground)];
 }
 
 .prose p {
-  @apply font-normal leading-[1.7] tracking-[-0.01em] text-slate-700;
+  @apply my-2 font-normal tracking-[-0.005em] text-[var(--foreground)];
 }
 
-.prose h1, .prose h2, .prose h3 {
-  @apply mt-6 mb-4 font-display font-bold tracking-tight text-slate-900;
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  @apply mb-2 mt-5 font-display font-semibold tracking-[-0.01em] text-[var(--foreground)];
 }
+.prose h1 { @apply text-xl; }
+.prose h2 { @apply text-[17px]; }
+.prose h3 { @apply text-[15.5px]; }
+.prose h4, .prose h5, .prose h6 { @apply text-sm; }
+
+.prose ul, .prose ol {
+  @apply my-2 space-y-1 pl-5;
+}
+.prose li::marker { color: var(--muted-foreground); }
+.prose li > p { @apply my-0; }
 
 .prose code {
-  @apply font-mono font-medium;
+  @apply font-mono text-[0.9em] font-medium;
 }
 
 .prose pre {
-  @apply rounded-2xl border border-slate-200/50 shadow-md;
+  /* 圆角统一到代码块的 12px（rounded-xl），不再 16px。 */
+  @apply rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] shadow-none;
 }
 
 .prose strong {
-  @apply font-semibold text-slate-800;
+  @apply font-semibold text-[var(--foreground)];
 }
 
 .prose a {
-  @apply text-sky-700 underline underline-offset-2;
+  @apply text-[var(--foreground)] underline underline-offset-2 decoration-[var(--border-strong)] decoration-1 hover:decoration-[var(--foreground)];
 }
 
 .prose blockquote {
-  @apply border-l-4 border-slate-200 pl-4 italic text-slate-600;
+  @apply my-3 border-l-2 border-[var(--border-strong)] pl-4 text-[var(--muted-foreground)];
+}
+
+.prose hr {
+  @apply my-4 border-[var(--border-subtle)];
 }
 
 .prose table {
-  @apply my-5 w-full border-collapse text-[13.5px];
+  @apply my-4 w-full border-collapse text-[13px];
 }
 
 .prose thead {
@@ -556,58 +576,43 @@ body.admin-modal-open .admin-dashboard-shell > button {
 }
 
 .prose th {
-  @apply whitespace-nowrap border-b border-slate-200/60 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+  @apply whitespace-nowrap border-b border-[var(--border-medium)] px-3 py-2 text-left text-[11px] font-semibold tracking-[0.02em] text-[var(--muted-foreground)];
 }
 
 .prose td {
-  @apply border-b border-slate-100/60 px-4 py-3 align-top min-w-0;
+  @apply border-b border-[var(--border-subtle)] px-3 py-2 align-top min-w-0;
 }
 
 .prose tbody tr:last-child td {
   @apply border-b-0;
 }
 
-/* 暗色主题 Markdown：默认 prose 规则写死 slate 系浅色，暗色下正文对比度
-   低至 ~1.7:1（聊天 / 后台会话详情都中招）。这里按 token 反转。 */
-.dark .prose p {
-  color: #d4d4d8; /* zinc-300 */
+.prose img { @apply rounded-lg; }
+
+/* 流式光标：统一到 CSS 动画，去掉两套 motion 实现；reduced-motion 时静止。
+   caret 用 currentColor，天然适配深浅色，不再硬编码 brand-500 / foreground。 */
+.stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  border-radius: 1px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: caret-blink 1.05s steps(2, start) infinite;
+}
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
 }
 
-.dark .prose h1,
-.dark .prose h2,
-.dark .prose h3,
-.dark .prose h4 {
-  color: #fafafa;
-}
-
-.dark .prose strong {
-  color: #fafafa;
-}
-
-.dark .prose a {
-  color: #a5b4fc; /* indigo-300 */
-}
-
-.dark .prose blockquote {
-  border-color: #3f3f46;
-  color: #a1a1aa;
-}
-
-.dark .prose th {
-  border-color: rgba(250, 250, 250, 0.14);
-  color: #a1a1aa;
-}
-
-.dark .prose td {
-  border-color: rgba(250, 250, 250, 0.08);
-}
-
-.dark .prose pre {
-  border-color: rgba(250, 250, 250, 0.12);
-}
-
-.dark .prose hr {
-  border-color: rgba(250, 250, 250, 0.12);
+/* 思考面板：grid 0fr↔1fr 平滑展开，避免 details 原生 display 切换的抖动。
+   流式时 details 被强制 open，因此这里只对「非 open」状态折叠。 */
+details:not([open]) > .reasoning-body { grid-template-rows: 0fr; }
+.thinking-dot { animation: thinking-wave 1.9s cubic-bezier(.4, 0, .2, 1) infinite; }
+@keyframes thinking-wave {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
 }
 } /* @layer components */
 

@@ -79,16 +79,34 @@ export function markStoppedTurn(messages: Message[]): Message[] {
   return next;
 }
 
+/**
+ * 流结束（正常 / 出错 / 停止）后清理悬挂决策卡片：只清指定会话的，
+ * 不误伤其它并行会话；无 session_id 的旧决策按 targetId 无法归属，保留。
+ */
+export function pruneDecisionsForSession<T extends { decision_id: string; session_id?: string }>(
+  decisions: T[],
+  sessionId: string | null,
+): T[] {
+  if (!sessionId) return decisions;
+  const next = decisions.filter((d) => d.session_id !== sessionId);
+  return next.length === decisions.length ? decisions : next;
+}
+
 async function prepareUploadedFiles(
   files: File[],
   onStatus: (label: string) => void,
+  sessionId?: string | null,
 ): Promise<{ filename: string; file_path: string; rel_path?: string | null }[]> {
   onStatus('正在上传文件');
   // 上传岛：真实字节进度（XHR onprogress），多文件聚合
   const uploadStore = useFileUploadStore.getState();
   uploadStore.begin(files.map((f) => ({ name: f.name, total: f.size })));
   try {
-    const results = await uploadFiles(files, (index, fraction) => uploadStore.setProgress(index, fraction));
+    const results = await uploadFiles(
+      files,
+      (index, fraction) => uploadStore.setProgress(index, fraction),
+      sessionId,
+    );
     // rel_path 必须透传：作用域文件工具只接受工作区相对路径，
     // 丢了它模型拿到的就是容器绝对路径，file_to_md 等全部失败。
     return results.map((r) => ({
@@ -170,6 +188,14 @@ export function useChatStream({
   const setError = useChatStore((s) => s.setStreamError);
   const pendingDecisions = useChatStore((s) => s.pendingDecisions);
   const setPendingDecisions = useChatStore((s) => s.setPendingDecisions);
+  /** 流结束（正常/出错/停止）后清理悬挂决策卡片，只清指定会话，不动其它并行会话。 */
+  const clearDecisionsForSession = useCallback(
+    (sessionId: string | null) => {
+      if (!sessionId) return;
+      setPendingDecisions((prev) => pruneDecisionsForSession(prev, sessionId));
+    },
+    [setPendingDecisions],
+  );
   const runStatus = useChatStore((s) => s.runStatus);
   const setRunStatus = useChatStore((s) => s.setRunStatus);
 
@@ -178,13 +204,16 @@ export function useChatStream({
   // CancelledError，整轮 LLM 生成作废，用户切回来只剩半截回复。
   // 只有「停止」按钮与组件卸载才允许 abort。
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  // 当前活跃流对应的会话 ID 集合（含后端重命名前后的 ID）
+  const activeStreamSessionIdsRef = useRef<Set<string>>(new Set());
   // 把「正在流式」的会话集合投影到全局 store：侧栏呼吸点 / 浏览器标题等
   // 环境感知 UI 消费。ref 负责同步读写（事件回调里要即时），store 只做投影。
   const setActiveStreamIds = useChatStore((s) => s.setActiveStreamIds);
   const activeStreamIds = useChatStore((s) => s.activeStreamIds);
-  const syncActiveStreams = () => setActiveStreamIds(new Set(activeStreamSessionIdsRef.current));
-  // 当前活跃流对应的会话 ID 集合（含后端重命名后的 ID）
-  const activeStreamSessionIdsRef = useRef<Set<string>>(new Set());
+  const syncActiveStreams = useCallback(
+    () => setActiveStreamIds(new Set(activeStreamSessionIdsRef.current)),
+    [setActiveStreamIds],
+  );
   // 最新 sessions 引用：handleSend 内部经 ref 读取，避免因依赖 sessions 在流式期间每帧重建回调
   const sessionsRef = useRef(sessions);
   useEffect(() => {
@@ -261,39 +290,53 @@ export function useChatStream({
     void handleSendRef.current?.(last.text, last.files, 'composer');
   }, [isLoading]);
   const handleStopGeneration = useCallback(() => {
-    // 停止按钮只 abort **当前会话**的请求，不影响其它会话后台进行的流
-    const stopKey = currentSessionId ?? loadingSessionId;
+    // 停止按钮作用于**实际在跑的那一轮**，而不是当前屏幕上展示的会话。
+    // 后台流场景（用户已切到别的会话）此前会优先取 currentSessionId，结果
+    // 啥也没 abort，只在当前会话上留下一堆"已停止"标记，真正的流还在跑。
+    const active = activeStreamSessionIdsRef.current;
+    const isRunning = (id: string | null): id is string =>
+      !!id && active.has(id) && !abortControllersRef.current.get(id)?.signal.aborted;
+    const stopKey =
+      (currentSessionId && isRunning(currentSessionId) ? currentSessionId : null) ??
+      (loadingSessionId && isRunning(loadingSessionId) ? loadingSessionId : null) ??
+      // 当前会话没在跑：取最近登记的后台活跃流（Set 的迭代顺序即登记顺序）
+      [...active].reverse().find((id) => !abortControllersRef.current.get(id)?.signal.aborted) ??
+      // 兜底：active 标记尚未同步时仍按 controller 找
+      (currentSessionId && abortControllersRef.current.has(currentSessionId) ? currentSessionId : null) ??
+      (loadingSessionId && abortControllersRef.current.has(loadingSessionId) ? loadingSessionId : null);
+
     if (stopKey) {
-      abortControllersRef.current.get(stopKey)?.abort();
-      abortControllersRef.current.delete(stopKey);
-    }
-    // 只清理当前会话的活跃标记（含后端重命名前后的 ID），不影响其他会话正在进行的流
-    if (loadingSessionId) {
-      activeStreamSessionIdsRef.current.delete(loadingSessionId);
-      syncActiveStreams();
-    }
-    if (currentSessionId) {
-      activeStreamSessionIdsRef.current.delete(currentSessionId);
-      syncActiveStreams();
-    }
-    // 停在本轮待审批状态时，把悬挂的审批请求标记为已拒绝：
-    // 否则运行已终止，审批面板却一直挂在消息上（点了也没有响应）。
-    const stopSessionId = currentSessionId ?? loadingSessionId;
-    if (stopSessionId) {
+      const controller = abortControllersRef.current.get(stopKey);
+      controller?.abort();
+      // 后端可能重命名 session_id，同一个 controller 会登记在多个 key 下；
+      // 全部清掉，并按实例身份识别（绝不误伤同一会话新开启的另一条流）
+      const stoppedKeys: string[] = [];
+      for (const [key, ctrl] of abortControllersRef.current) {
+        if (ctrl === controller) {
+          stoppedKeys.push(key);
+          abortControllersRef.current.delete(key);
+        }
+      }
+      const stoppedSet = new Set(stoppedKeys.length > 0 ? stoppedKeys : [stopKey]);
+      for (const key of stoppedSet) active.delete(key);
+      setActiveStreamIds(new Set(active));
+
+      // 停在本轮待审批 / 待决策状态时，把悬挂状态清掉：
+      // 否则运行已终止，面板却一直挂在消息上（点了也没有响应）。
       setSessions((prev) =>
         prev.map((session) =>
-          session.id === stopSessionId
-            ? {
-                ...session,
-                messages: markStoppedTurn(session.messages),
-              }
+          stoppedSet.has(session.id)
+            ? { ...session, messages: markStoppedTurn(session.messages) }
             : session
         )
       );
+      setPendingDecisions((prev) =>
+        prev.filter((d) => !d.session_id || !stoppedSet.has(d.session_id)),
+      );
+      setLoadingSessionId((prev) => (prev !== null && stoppedSet.has(prev) ? null : prev));
     }
-    setLoadingSessionId(null);
     setRunStatus({ phase: 'done', label: '正在停止请求' });
-  }, [loadingSessionId, currentSessionId]);
+  }, [loadingSessionId, currentSessionId, setSessions, setPendingDecisions, setActiveStreamIds]);
 
   const handleApprovalDecision = useCallback(
     async (
@@ -372,7 +415,9 @@ export function useChatStream({
           })),
         );
         setError('审批提交失败，请检查后端服务。');
+        return false;
       }
+      return true;
     },
     [setSessions, currentSessionId],
   );
@@ -440,12 +485,12 @@ export function useChatStream({
 
       try {
         const attachments = files ? buildAttachments(files, attachmentUrlsRef.current) : [];
-        const uploadedFiles = files && files.length > 0
-          ? await prepareUploadedFiles(files, (label) => setRunStatus({ phase: 'thinking', label }))
-          : [];
 
         // id 保留可解析的时间戳前缀（ChatMessage 用 parseInt(message.id) 推时间戳，
-        // parseInt 在 '-' 处截断；backend-N 前缀判断不受影响），随机后缀避免同毫秒碰撞
+        // parseInt 在 '-' 处截断；backend-N 前缀判断不受影响），随机后缀避免同毫秒碰撞。
+        // 必须在上传之前确定 targetId：新会话时后端还没有分配 session_id，
+        // 这里客户端生成的 id 就是本轮 sendMessageStream 的 sessionId，上传带上它
+        // 才能落到同一个会话工作区并返回 rel_path（否则文档工具读到绝对路径报错）。
         userMessage = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           role: 'user',
@@ -456,6 +501,14 @@ export function useChatStream({
         const history = sessionsRef.current.find((s) => s.id === currentSessionId)?.messages || [];
         targetId = currentSessionId || userMessage.id;
         assistantMessageId = `${userMessage.id}-assistant`;
+
+        const uploadedFiles = files && files.length > 0
+          ? await prepareUploadedFiles(
+            files,
+            (label) => setRunStatus({ phase: 'thinking', label }),
+            targetId,
+          )
+          : [];
 
         queueMicrotask(() => {
           setLoadingSessionId(targetId);
@@ -829,10 +882,13 @@ export function useChatStream({
           onUserDecision: (decision: unknown) => {
             const d = normalizeDecision(decision);
             if (!d) return;
+            // 打上来源会话：流结束 / 出错 / 停止时按会话精准清理悬挂卡片，
+            // 不误伤其它并行会话的决策。
+            const tagged: UserDecision = { ...d, session_id: targetId ?? d.session_id };
             setPendingDecisions((prev) => {
               // 避免重复添加
-              if (prev.some((item) => item.decision_id === d.decision_id)) return prev;
-              return [...prev, d];
+              if (prev.some((item) => item.decision_id === tagged.decision_id)) return prev;
+              return [...prev, tagged];
             });
           },
           onUserInputRequired: (input) => {
@@ -1071,15 +1127,41 @@ export function useChatStream({
         setRunStatus({ phase: 'error', label: '本轮回复失败' });
         return false; // 失败：让调用方保留用户输入（如未上传成功的附件）
       } finally {
-        // 按 controller 值清理（会话可能已被后端重命名，key 不一定是发起时那个）
-        for (const [key, controller] of abortControllersRef.current) {
-          if (controller === abortController) abortControllersRef.current.delete(key);
+        // 按 controller **实例身份**清理（会话可能已被后端重命名，key 不一定是
+        // 发起时那个）。绝不按裸 ID 清理：同会话若已开启新流，旧流的 finally
+        // 会把新流的 loading / active 标记一起抹掉（表现为「新流发出去却瞬间
+        // 显示已完成、侧栏呼吸点消失」）。
+        const removedKeys: string[] = [];
+        for (const [key, ctrl] of abortControllersRef.current) {
+          if (ctrl === abortController) {
+            abortControllersRef.current.delete(key);
+            removedKeys.push(key);
+          }
         }
-        if (targetId) {
-          activeStreamSessionIdsRef.current.delete(targetId);
-          syncActiveStreams();
+        // 还有别的活跃 controller 占用该会话 key ⇒ 同会话新流已接管，别清它的状态
+        const hasOtherStream = (sessionId: string): boolean =>
+          [...abortControllersRef.current.entries()].some(
+            ([key, ctrl]) => key === sessionId && !ctrl.signal.aborted,
+          );
+
+        const active = activeStreamSessionIdsRef.current;
+        let activeChanged = false;
+        for (const key of removedKeys) {
+          if (!hasOtherStream(key) && active.has(key)) {
+            active.delete(key);
+            activeChanged = true;
+          }
         }
-        setLoadingSessionId((prev) => (prev === targetId || prev === null ? null : prev));
+        if (activeChanged) setActiveStreamIds(new Set(active));
+
+        setLoadingSessionId((prev) => {
+          if (prev !== targetId && prev !== null) return prev;
+          if (prev !== null && hasOtherStream(prev)) return prev; // 新流接管了 loading
+          return null;
+        });
+        // 流结束（正常/出错/停止）后清掉本会话悬挂的决策卡片；
+        // 若同会话已有新流接管，则保留（避免抹掉新流刚下发的决策）。
+        if (targetId && !hasOtherStream(targetId)) clearDecisionsForSession(targetId);
       }
     },
     [
@@ -1087,6 +1169,10 @@ export function useChatStream({
       currentSessionId,
       currentSession,
       chatMode,
+      // 这两个值在回调里直接读取（sendMessageStream 的 plan_mode / visual_style），
+      // 必须以依赖纳入闭包，否则「只切换计划模式后发送」会用旧值（无 ref 同步）。
+      planMode,
+      visualStyle,
       approvalMode,
       selectedAgentProfileId,
       selectedAgent,
@@ -1096,10 +1182,15 @@ export function useChatStream({
       applySessionState,
       setArtifact,
       setInputValue,
+      setError,
+      setPendingDecisions,
+      setRunStatus,
       onUserInputRequired,
       onApiApprovalRequired,
       loadingSessionId,
       setActiveStreamIds,
+      syncActiveStreams,
+      clearDecisionsForSession,
     ],
   );
 

@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { Session } from '../types';
 
+/**
+ * 消息内容指纹：流式期间消息对象引用每帧变化，但搜索匹配只关心文本内容。
+ * 用「条数 + 末条文本长度 + 末条文本」做指纹，保证流式新增内容后重算，
+ * 又不会因无关状态更新（比如 toolCalls / artifact 变化）反复重算。
+ */
+export function messageFingerprint(messages: Array<{ text?: string }> | undefined): string {
+  const last = messages?.[messages.length - 1]?.text ?? '';
+  return `${messages?.length ?? 0}:${last.length}:${last}`;
+}
+
 export const useChatSearch = (
   currentSession: Session | undefined,
   scrollToMessageFallback?: (messageId: string) => void,
@@ -10,6 +20,10 @@ export const useChatSearch = (
   const [searchCurrentIndex, setSearchCurrentIndex] = useState(0);
   const [searchMatches, setSearchMatches] = useState<string[]>([]);
   const highlightTimeoutRef = useRef<number | null>(null);
+
+  // 消息指纹：流式期间 messages 引用每帧变化，但依赖里放整个 session 会在
+  // 每次 setSessions 时重算。指纹只随文本内容变化，捕获流式新增。
+  const fingerprint = messageFingerprint(currentSession?.messages);
 
   useEffect(() => {
     if (!searchQuery.trim() || !currentSession) {
@@ -33,7 +47,9 @@ export const useChatSearch = (
     
     setSearchMatches(matches);
     setSearchCurrentIndex(matches.length > 0 ? 1 : 0);
-  }, [searchQuery, currentSession?.id]);
+    // fingerprint 覆盖流式新增内容；session.id 覆盖会话切换
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, currentSession?.id, fingerprint]);
 
   useEffect(() => {
     return () => {

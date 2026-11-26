@@ -9,6 +9,8 @@ export type UserDecision = {
   options: string[];
   context?: string;
   allow_custom?: boolean;
+  /** 发起该决策的会话 ID（前端打标，流结束/停止时按会话精准清理悬挂卡片） */
+  session_id?: string;
 };
 
 export function normalizeDecision(raw: unknown): UserDecision | null {

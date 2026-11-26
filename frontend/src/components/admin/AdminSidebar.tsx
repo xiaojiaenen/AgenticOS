@@ -87,9 +87,9 @@ const navGroups: NavGroup[] = [
     icon: BarChart3,
     description: '查看用户、会话和资源统计',
     items: [
-      { id: 'dashboard', icon: BarChart3, label: '系统总览', description: '查看用户、会话和资源统计', capability: 'user:manage' },
-      { id: 'user_analytics', icon: LineChart, label: '用户分析', description: '每用户用量、在线状态与常用工具/功能', capability: 'user:manage' },
-      { id: 'quota', icon: Gauge, label: '用量与配额', description: '每日 Token 配额与超限用户运营视图', capability: 'user:manage' },
+      { id: 'dashboard', icon: BarChart3, label: '系统总览', description: '查看用户、会话和资源统计', capability: 'audit:view' },
+      { id: 'user_analytics', icon: LineChart, label: '用户分析', description: '每用户用量、在线状态与常用工具/功能', capability: 'audit:view' },
+      { id: 'quota', icon: Gauge, label: '用量与配额', description: '每日 Token 配额与超限用户运营视图', capability: 'audit:view' },
     ],
   },
   {
@@ -98,9 +98,9 @@ const navGroups: NavGroup[] = [
     icon: MessageSquare,
     description: '聊天记录、公告与用户记忆',
     items: [
-      { id: 'approvals', icon: ShieldAlert, label: '审批中心', description: '聚合部署/发布/工具调用的待审批事项', capability: 'user:manage' },
+      { id: 'approvals', icon: ShieldAlert, label: '审批中心', description: '聚合部署/发布/工具调用的待审批事项', capability: 'approval:review' },
       { id: 'history', icon: MessageSquare, label: '聊天记录', description: '检索会话并查看完整详情', capability: 'user:manage' },
-      { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告', capability: 'user:manage' },
+      { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告', capability: 'announcement:manage' },
       { id: 'memory', icon: Brain, label: '记忆管理', description: '查看和管理 AI 学到的用户记忆', capability: 'user:manage' },
       { id: 'traces', icon: Activity, label: '运行追踪', description: '每次运行的步骤瀑布、耗时与反馈标注', capability: 'user:manage' },
       { id: 'feedback', icon: MessageSquarePlus, label: '反馈中心', description: '公开反馈广场的状态流转、官方回复与成果看板', capability: 'user:manage' },
@@ -112,13 +112,13 @@ const navGroups: NavGroup[] = [
     icon: Bot,
     description: '智能体、Skill、知识库与站点',
     items: [
-      { id: 'agents', icon: Bot, label: '智能体配置', description: '维护智能体、工具审批与绑定', capability: 'user:manage' },
-      { id: 'llm_providers', icon: Sparkles, label: 'AI 提供商', description: '配置全站使用的大模型后端', capability: 'user:manage' },
-      { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录', capability: 'user:manage' },
-      { id: 'tool_policy', icon: ShieldAlert, label: '能力限制', description: '限制用户自建智能体可用的危险工具', capability: 'user:manage' },
-      { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译', capability: 'user:manage' },
-      { id: 'website_deploys', icon: Globe, label: '部署', description: '审批和管理网站部署请求', capability: 'user:manage' },
-      { id: 'app_platform', icon: AppWindow, label: '网站应用', description: '应用化平台：manifest 声明、plan 审批与数据托管', capability: 'user:manage' },
+      { id: 'agents', icon: Bot, label: '智能体配置', description: '维护智能体、工具审批与绑定', capability: 'agent:manage' },
+      { id: 'llm_providers', icon: Sparkles, label: 'AI 提供商', description: '配置全站使用的大模型后端', capability: 'provider:manage' },
+      { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录', capability: 'agent:manage' },
+      { id: 'tool_policy', icon: ShieldAlert, label: '能力限制', description: '限制用户自建智能体可用的危险工具', capability: 'agent:manage' },
+      { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译', capability: 'knowledge:manage' },
+      { id: 'website_deploys', icon: Globe, label: '部署', description: '审批和管理网站部署请求', capability: 'gallery:manage' },
+      { id: 'app_platform', icon: AppWindow, label: '网站应用', description: '应用化平台：manifest 声明、plan 审批与数据托管', capability: 'gallery:manage' },
       { id: 'evals', icon: FlaskConical, label: '评测', description: '用固定用例集回归验证智能体质量', capability: 'user:manage' },
     ],
   },
@@ -274,7 +274,7 @@ export const AdminSidebar = React.memo(
             type="button"
             onClick={onClose}
             className={cn(
-              'rounded-xl p-2 transition-all active:scale-90 focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
+              'rounded-xl p-2 transition-colors hover:bg-[var(--surface-2)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
               'text-[var(--muted-foreground)] hover:bg-[var(--surface-1)] hover:text-[var(--foreground)] hover:shadow-sm',
             )}
             aria-label="关闭导航"
@@ -416,7 +416,7 @@ export const AdminSidebar = React.memo(
               type="button"
               onClick={handleLogout}
               className={cn(
-                'rounded-xl p-2 transition-all hover:scale-110 active:scale-90 focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
+                'rounded-xl p-2 transition-colors hover:bg-[var(--surface-2)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
                 'text-[var(--muted-foreground)] hover:bg-rose-50 hover:text-rose-500',
               )}
               title="退出登录"

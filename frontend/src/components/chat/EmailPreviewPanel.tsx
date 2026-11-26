@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { sanitizeHtml } from '../../lib/safePreview';
 import {
-  Mail, Send, X, Palette, Edit3, Eye,
+  Mail, Send, X, Palette, Edit3, Eye, Loader2,
 } from 'lucide-react';
 import {
   listEmailTemplates,
@@ -40,7 +40,7 @@ type EmailPreviewPanelProps = {
     approvalId: string,
     status: 'approved' | 'rejected',
     modifiedArguments?: Record<string, unknown>,
-  ) => void;
+  ) => Promise<boolean> | void;
 };
 
 export const EmailPreviewPanel: React.FC<EmailPreviewPanelProps> = ({ emails, onDecision }) => {
@@ -166,18 +166,31 @@ const EmailCard: React.FC<{
     refreshPreview(next);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const onApprove = () => {
+    if (submitting) return;
+    setSubmitting(true);
     // 把用户改过的内容 + 当前渲染结果，作为工具参数回传。
     // 后端批准后按这份参数执行 send_email（body 是渲染好的 HTML，is_html=true）。
     const finalBody = previewHtml ?? body;
     const finalIsHtml = previewIsHtml;
-    onDecision(email.approval_id, 'approved', {
+    Promise.resolve(onDecision(email.approval_id, 'approved', {
       to,
       ...(cc ? { cc } : {}),
       subject,
       body: finalBody,
       is_html: finalIsHtml,
-    });
+    })).then((ok) => { if (ok === false) setSubmitting(false); })
+      .catch(() => setSubmitting(false));
+  };
+
+  const onReject = () => {
+    if (submitting) return;
+    setSubmitting(true);
+    Promise.resolve(onDecision(email.approval_id, 'rejected'))
+      .then((ok) => { if (ok === false) setSubmitting(false); })
+      .catch(() => setSubmitting(false));
   };
 
   const fieldCls = cn(
@@ -326,9 +339,10 @@ const EmailCard: React.FC<{
       <div className="flex items-center gap-2 justify-end">
         <button
           type="button"
-          onClick={() => onDecision(email.approval_id, 'rejected')}
+          disabled={submitting}
+          onClick={onReject}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-colors active:scale-95",
+            "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-colors active:scale-95 disabled:opacity-50",
             "border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--border-strong)]"
           )}
         >
@@ -337,10 +351,11 @@ const EmailCard: React.FC<{
         </button>
         <button
           type="button"
+          disabled={submitting}
           onClick={onApprove}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 active:scale-95 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 active:scale-95 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)] disabled:opacity-50"
         >
-          <Send size={13} />
+          {submitting ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
           确认发送
         </button>
       </div>

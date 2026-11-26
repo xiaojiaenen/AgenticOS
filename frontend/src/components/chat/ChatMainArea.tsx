@@ -14,11 +14,13 @@ import { Globe, Presentation, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../shadcn/tooltip';
 import { useChat } from '../../contexts/ChatContext';
 import { useChatStore } from '../../stores/chatStore';
+import { countAllArtifacts } from '../../lib/workspaceArtifacts';
+import { panelTab } from '../panel/tabs';
 import { cn } from '../../lib/utils';
 import { issueWebsitePreviewUrl } from '../../services/websiteService';
 import { getSessionArtifacts } from '../../services/agentService';
 import { toast } from 'sonner';
-import { canEnterAdmin } from '@/services/authTokenStore';
+import { isAdmin as isPlatformAdmin } from '@/services/authTokenStore';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
@@ -64,6 +66,9 @@ const {
   const setError = useChatStore((s) => s.setStreamError);
   const runStatus = useChatStore((s) => s.runStatus);
   const pendingDecisions = useChatStore((s) => s.pendingDecisions);
+  // 工作区产物由 useSessionWorkspaceOutputs 按会话拉取，这里只读快照。
+  const sessionWorkspaceOutputs = useChatStore((s) => s.sessionWorkspaceOutputs);
+  const openSidebarTab = useChatStore((s) => s.openSidebarTab);
 
   // Zustand store（UI 状态）—— 逐字段 selector：无参调用会在每次 set()
   // （包括每个按键）都重渲染本组件
@@ -384,10 +389,52 @@ const {
             getA2uiData={getA2uiData}
             onSuggestionClick={onSuggestionClick}
             onOpenArtifact={onOpenArtifact}
+            artifactCount={countAllArtifacts(currentSession?.messages ?? [], sessionWorkspaceOutputs)}
+            onViewArtifacts={() => openSidebarTab(panelTab('artifacts'))}
             messagesEndRef={messagesEndRef}
             scrollParent={scrollParent}
             virtuosoRef={virtuosoRef}
           />
+
+          {/* 计划模式：Agent 产出计划后提供「批准并执行」闭环。
+              点击后关闭计划模式，并把计划文本回灌给模型执行。 */}
+          {planMode && runStatus.phase === 'done' && (() => {
+            const msgs = currentSession?.messages ?? [];
+            const lastAssistant = [...msgs].reverse().find((m) => m.role === 'model');
+            const planText = lastAssistant?.text?.trim();
+            if (!planText) return null;
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mx-auto mb-3 flex max-w-3xl flex-wrap items-center gap-3 rounded-xl border border-[var(--border-medium)] bg-[var(--surface-1)] px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold text-[var(--foreground)]">计划已生成</p>
+                  <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+                    批准后将关闭计划模式，并把上面的计划作为执行指令发给 Agent
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlanMode(false);
+                    void handleSend(`请按以下计划执行：\n\n${planText}`);
+                  }}
+                  className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-[11px] font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 active:scale-[0.98]"
+                >
+                  批准并执行
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlanMode(false)}
+                  className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]"
+                >
+                  暂不执行
+                </button>
+              </motion.div>
+            );
+          })()}
         </div>
       </div>
 
@@ -534,7 +581,7 @@ const {
             onApprovalModeChange={setApprovalMode}
             planMode={planMode}
             onPlanModeChange={setPlanMode}
-            isAdmin={canEnterAdmin()}
+            isAdmin={isPlatformAdmin()}
           />
         </div>
       </div>

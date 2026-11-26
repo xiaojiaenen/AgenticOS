@@ -52,6 +52,10 @@ interface MessagesListProps {
   getA2uiData?: () => Record<string, unknown>;
   onSuggestionClick: (text: string) => void;
   onOpenArtifact: (artifact: Artifact) => void;
+  /** 会话产物总数（消息产物 + 工作区文件产物）；>0 时在最后一条 assistant 消息 footer 显示入口 */
+  artifactCount?: number;
+  /** 点击「查看所有产物」→ 打开侧栏产物库 */
+  onViewArtifacts?: () => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   /** 虚拟化模式下的滚动容器（ChatMainArea 的 scrollRef 绑定节点） */
   scrollParent?: HTMLDivElement | null;
@@ -70,6 +74,8 @@ export const MessagesList = React.memo<MessagesListProps>(({
   getA2uiData,
   onSuggestionClick,
   onOpenArtifact,
+  artifactCount = 0,
+  onViewArtifacts,
   messagesEndRef,
   scrollParent,
   virtuosoRef,
@@ -89,6 +95,10 @@ export const MessagesList = React.memo<MessagesListProps>(({
   const showTyping = isLoading && !(lastMessage?.role === 'model');
   const streamingMessageId = isLoading && lastMessage?.role === 'model' ? lastMessage.id : null;
 
+  // 「查看所有产物」只挂在最后一条 assistant 消息上 —— 每条历史消息都挂
+  // 一个链接会变成噪音，而产物库本来就是会话级的（侧栏 tab）。
+  const lastAssistantId = [...messages].reverse().find((m) => m.role === 'model')?.id;
+
   const renderMessage = (message: Message, idx: number) => (
     <ChatMessage
       message={message}
@@ -102,6 +112,8 @@ export const MessagesList = React.memo<MessagesListProps>(({
       onOpenArtifact={onOpenArtifact}
       onA2uiAction={handleA2uiAction}
       onA2uiDataChange={onA2uiDataChange}
+      artifactCount={message.id === lastAssistantId ? artifactCount : 0}
+      onViewArtifacts={onViewArtifacts}
     />
   );
 

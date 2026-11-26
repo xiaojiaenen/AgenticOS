@@ -6,13 +6,14 @@
  * 数据全部来自消息快照（离线缓存也有），不额外请求后端。
  */
 import * as React from 'react';
-import { FileImage, FileSpreadsheet, FileText, Globe, Presentation } from 'lucide-react';
+import { FileImage, FileSpreadsheet, FileText, Globe, Presentation, FolderOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
+import { collectOutputTabs } from './tabs';
 import type { Artifact, Message } from '../../types';
 import type { SessionPanelProps } from './types';
 
-type Kind = 'all' | 'ppt' | 'website' | 'document' | 'sheet' | 'image';
+type Kind = 'all' | 'ppt' | 'website' | 'document' | 'sheet' | 'image' | 'file';
 
 const FILTERS: Array<{ id: Kind; label: string; Icon: typeof Globe }> = [
   { id: 'all', label: '全部', Icon: Globe },
@@ -21,6 +22,7 @@ const FILTERS: Array<{ id: Kind; label: string; Icon: typeof Globe }> = [
   { id: 'document', label: '文档', Icon: FileText },
   { id: 'sheet', label: '表格', Icon: FileSpreadsheet },
   { id: 'image', label: '图片', Icon: FileImage },
+  { id: 'file', label: '文件', Icon: FolderOpen },
 ];
 
 type Entry = {
@@ -30,6 +32,8 @@ type Entry = {
   meta: string;
   /** 能直接从消息快照恢复的产物；文档/表格快照不进缓存，交给现签/回源 */
   artifact?: Artifact;
+  /** 工作区文件产物：点击在侧栏开 output tab，而不是 setArtifact */
+  outputTabId?: string;
 };
 
 function collect(messages: Message[], sessionId: string): Entry[] {
@@ -79,12 +83,32 @@ const KIND_ICON: Record<Entry['kind'], typeof Globe> = {
   document: FileText,
   sheet: FileSpreadsheet,
   image: FileImage,
+  file: FolderOpen,
 };
 
-export const ArtifactsPanel: React.FC<SessionPanelProps> = ({ messages, sessionId }) => {
+export const ArtifactsPanel: React.FC<SessionPanelProps> = ({ messages, sessionId, workspaceOutputs = [] }) => {
   const [filter, setFilter] = React.useState<Kind>('all');
   const setArtifact = useChatStore((s) => s.setArtifact);
-  const entries = React.useMemo(() => collect(messages, sessionId), [messages, sessionId]);
+  const openTab = useChatStore((s) => s.openSidebarTab);
+  const entries = React.useMemo(() => {
+    const base = collect(messages, sessionId);
+    // 工作区文件产物：模型 write_text_file 写出的 html/csv/图片等。
+    // 复用 collectOutputTabs 保证与侧栏标签的 id / url / 类型口径一致。
+    const outputTabs = collectOutputTabs(workspaceOutputs, sessionId);
+    outputTabs.forEach((tab) => {
+      const k = tab.outputKind === 'image' ? 'image' : 'file';
+      const kind: Entry['kind'] = k;
+      const meta = tab.outputKind === 'html' ? '网页 · 工作区' : tab.outputKind === 'image' ? '图片 · 工作区' : '数据文件 · 工作区';
+      base.push({
+        key: tab.id,
+        kind,
+        title: tab.title,
+        meta,
+        outputTabId: tab.id,
+      });
+    });
+    return base;
+  }, [messages, sessionId, workspaceOutputs]);
   const shown = filter === 'all' ? entries : entries.filter((e) => e.kind === filter);
 
   return (
@@ -121,9 +145,18 @@ export const ArtifactsPanel: React.FC<SessionPanelProps> = ({ messages, sessionI
               <li key={e.key}>
                 <button
                   type="button"
-                  disabled={!e.artifact}
-                  title={e.artifact ? '打开预览' : '快照需回源，暂不可直接打开'}
-                  onClick={() => e.artifact && setArtifact(e.artifact)}
+                  disabled={!e.artifact && !e.outputTabId}
+                  title={e.artifact || e.outputTabId ? '打开预览' : '快照需回源，暂不可直接打开'}
+                  onClick={() => {
+                    if (e.outputTabId) {
+                      // 工作区输出：由 collectOutputTabs 生成的 tab 已在 store 里
+                      // （或从 entries 反查）→ 这里直接构造并打开
+                      const tab = collectOutputTabs(workspaceOutputs, sessionId).find((t) => t.id === e.outputTabId);
+                      if (tab) openTab(tab);
+                    } else if (e.artifact) {
+                      setArtifact(e.artifact);
+                    }
+                  }}
                   className="flex w-full items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2.5 text-left transition-colors enabled:hover:border-[var(--ring)] enabled:hover:bg-[var(--surface-3)] disabled:opacity-55"
                 >
                   <Icon size={16} className="shrink-0 text-[var(--muted-foreground)]" />

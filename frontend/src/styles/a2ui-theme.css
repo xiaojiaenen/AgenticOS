@@ -17,7 +17,8 @@
 :root {
   /* ---- core palette ---- */
   --a2ui-color-primary: var(--primary);
-  --a2ui-color-primary-hover: color-mix(in oklab, var(--primary) 88%, transparent);
+  /* Chrome 85 不支持 color-mix：用预计算 rgba（zinc 主色 #18181b 88% ≈ 0.88 alpha） */
+  --a2ui-color-primary-hover: rgba(24, 24, 27, 0.88);
   --a2ui-color-on-primary: var(--primary-foreground);
 
   --a2ui-color-secondary: var(--surface-0);
@@ -40,7 +41,7 @@
   --a2ui-font-weight-regular: 400;
   --a2ui-font-weight-medium: 500;
   --a2ui-font-weight-bold: 600;
-  --a2ui-color-primary-container: color-mix(in oklab, var(--primary) 8%, transparent);
+  --a2ui-color-primary-container: rgba(24, 24, 27, 0.08);
   --a2ui-color-surface-variant: var(--surface-0);
 
   /* ---- typography ---- */

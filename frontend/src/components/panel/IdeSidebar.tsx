@@ -11,30 +11,27 @@
  * 标签状态在 store（sessionTabs），会话切换时按会话隔离。
  */
 import * as React from 'react';
-import { FileImage, FileSpreadsheet, FileText, Globe, Presentation, X } from 'lucide-react';
+import {
+  Activity, FileImage, FileSpreadsheet, FileText, FolderTree, Globe,
+  Layers, LayoutGrid, Presentation, X,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
 import { issueWebsitePreviewUrl } from '../../services/websiteService';
+import { apiFetch } from '../../services/apiClient';
+import { Download } from 'lucide-react';
 import { PptArtifactPanel } from '../ppt/PptArtifactPanel';
 import { SlideLivePreview } from '../ppt/SlideLivePreview';
-import type { Artifact, Message } from '../../types';
+import { FilesPanel } from './FilesPanel';
+import { RunLogPanel } from './RunLogPanel';
+import { ArtifactsPanel } from './ArtifactsPanel';
+import { collectTabs, panelTab } from './tabs';
+import type { SidebarTab, TabKind } from './tabs';
+import type { Message } from '../../types';
 
-export type TabKind = 'ppt' | 'website' | 'document' | 'sheet' | 'image' | 'file' | 'log';
-
-export interface SidebarTab {
-  /** 稳定 id：kind + 业务 id */
-  id: string;
-  kind: TabKind;
-  title: string;
-  /** 直接可渲染的产物快照（website 不用，走新窗口） */
-  artifact?: Artifact;
-  /** 文件路径（file 标签） */
-  path?: string;
-  /** website：项目 slug（现签预览链接用） */
-  projectSlug?: string;
-  /** website：技术栈（vue/react 的 SPA 不能 srcDoc 内联 —— 会劫持路由） */
-  stack?: string;
-}
+// 兼容旧 import 路径：类型与收集函数的唯一事实来源在 ./tabs。
+export { collectTabs, panelTab, PANEL_TAB_IDS } from './tabs';
+export type { SidebarTab, TabKind } from './tabs';
 
 const KIND_ICON: Record<TabKind, typeof Globe> = {
   ppt: Presentation,
@@ -44,79 +41,38 @@ const KIND_ICON: Record<TabKind, typeof Globe> = {
   image: FileImage,
   file: FileText,
   log: FileText,
+  output: FileText,
+  files: FolderTree,
+  'run-log': Activity,
+  artifacts: Layers,
 };
 
-/** 从消息收集「可开标签」的条目（产物 + 图片附件） */
-export function collectTabs(messages: Message[], sessionId: string): SidebarTab[] {
-  const out: SidebarTab[] = [];
-  const seen = new Set<string>();
-  const push = (tab: SidebarTab) => {
-    if (seen.has(tab.id)) return;
-    seen.add(tab.id);
-    out.push(tab);
-  };
-  messages.forEach((m, i) => {
-    if (m.pptArtifact?.status === 'ready') {
-      // id 用真 artifactId；只有历史脏数据（早期未落库的旧消息）才退回位置序号。
-      // 退回值的产物在服务端查不到，面板会显示"加载失败"，但至少标签可点。
-      const id = m.pptArtifact.artifactId ?? `ppt-${i}`;
-      push({
-        id: `ppt:${id}`,
-        kind: 'ppt',
-        title: m.pptArtifact.title || '演示文稿',
-        // artifact 始终构造（即使没有 html）：PptArtifactPanel 会按
-        // artifactId 懒加载预览，工具栏（主题/导出/编辑）不依赖 html。
-        artifact: {
-          language: 'ppt',
-          artifactId: m.pptArtifact.artifactId,
-          // 空串 = 尚未加载，PptArtifactPanel 会按 artifactId 回源预览
-          html: m.pptArtifact.html ?? '',
-          title: m.pptArtifact.title ?? '',
-          slideCount: m.pptArtifact.slideCount ?? 0,
-          theme: m.pptArtifact.theme,
-          sessionId,
-        },
-      });
-    }
-    if (m.websiteArtifact?.status === 'ready') {
-      const id = m.websiteArtifact.artifactId ?? `web-${i}`;
-      push({
-        id: `website:${id}`,
-        kind: 'website',
-        title: m.websiteArtifact.title || '网站',
-        projectSlug: m.websiteArtifact.projectSlug,
-        stack: m.websiteArtifact.stack,
-        /** 内联快照 —— 仅 vanilla（无路由脚本）允许 srcDoc 渲染 */
-        artifact: { language: 'website', artifactId: id, html: m.websiteArtifact.html ?? '', title: m.websiteArtifact.title ?? '', projectSlug: m.websiteArtifact.projectSlug ?? '', stack: m.websiteArtifact.stack, fileCount: 0 } as Artifact,
-      });
-    }
-    if (m.documentArtifact?.status === 'ready') {
-      push({ id: `document:${m.documentArtifact.artifactId ?? i}`, kind: 'document', title: m.documentArtifact.title || '文档' });
-    }
-    if (m.sheetArtifact?.status === 'ready') {
-      push({ id: `sheet:${m.sheetArtifact.artifactId ?? i}`, kind: 'sheet', title: m.sheetArtifact.title || '表格' });
-    }
-    m.attachments?.forEach((a, j) => {
-      if (a.type?.startsWith('image/')) {
-        push({ id: `image:${i}-${j}-${a.name}`, kind: 'image', title: a.name || '图片' });
-      }
-    });
-  });
-  return out;
-}
+/** 启动器条目：空状态时展示的「打开面板」卡片（IDE 工作台风格） */
+const LAUNCHERS: Array<{
+  kind: 'files' | 'run-log' | 'artifacts';
+  label: string;
+  desc: string;
+  icon: typeof Globe;
+}> = [
+  { kind: 'files', label: '文件', desc: '浏览会话工作区的文件与产物', icon: FolderTree },
+  { kind: 'artifacts', label: '产物库', desc: '查看本次会话生成的全部交付物', icon: Layers },
+  { kind: 'run-log', label: '运行日志', desc: '复盘本轮工具调用与执行状态', icon: Activity },
+];
 
 export interface SidebarHostProps {
   sessionId: string | null;
   messages: Message[];
   /** PPT 生成中：侧栏在没有产物标签时展示实时预览（轮询增量 SVG） */
   isPptStreaming?: boolean;
+  /** 会话工作区产物（html/csv/xlsx/图片…），用于「本次会话产物」列表 */
+  workspaceOutputs?: import('../../lib/workspaceArtifacts').WorkspaceEntry[];
 }
 
 /**
  * 侧栏容器：标签栏 + 激活标签内容。
  * 标签数据由 ChatMainArea 的触发点写入 store；这里只负责渲染与关闭。
  */
-export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages, isPptStreaming = false }) => {
+export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages, isPptStreaming = false, workspaceOutputs = [] }) => {
   const tabs = useChatStore((s) => s.sidebarTabs);
   const activeTabId = useChatStore((s) => s.activeSidebarTabId);
   const setActiveTab = useChatStore((s) => s.setActiveSidebarTab);
@@ -125,16 +81,63 @@ export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages, is
 
   // 侧栏打开但没有任何标签时，给一个"可打开项"列表（等价于旧产物库，
   // 但从「浏览」降级为「空状态提示」，不占标签位）
-  const available = React.useMemo(() => collectTabs(messages, sessionId ?? ''), [messages, sessionId]);
+  const available = React.useMemo(
+    () => collectTabs(messages, sessionId ?? '', workspaceOutputs),
+    [messages, sessionId, workspaceOutputs],
+  );
   const openTab = useChatStore((s) => s.openSidebarTab);
   const active = tabs.find((t) => t.id === activeTabId) ?? tabs[0] ?? null;
+  const [showLauncher, setShowLauncher] = React.useState(false);
+
+  // 启动器菜单：展示可打开的功能面板
+  const launcher = (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setShowLauncher((v) => !v)}
+        aria-label="打开工作区面板"
+        title="打开工作区面板"
+        className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+      >
+        <LayoutGrid size={14} />
+      </button>
+      {showLauncher && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setShowLauncher(false)} />
+          <div className="absolute right-0 top-7 z-40 w-56 rounded-xl border border-[var(--border-medium)] bg-[var(--surface-1)] p-1.5 shadow-xl">
+            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">工作区面板</p>
+            {LAUNCHERS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.kind}
+                  type="button"
+                  onClick={() => { openTab(panelTab(item.kind)); setShowLauncher(false); }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[11px] text-[var(--foreground)] hover:bg-[var(--surface-2)]"
+                >
+                  <Icon size={14} className="shrink-0 text-[var(--muted-foreground)]" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{item.label}</span>
+                    <span className="block truncate text-[10px] text-[var(--muted-foreground)]">{item.desc}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   if (tabs.length === 0) {
     return (
       <div className="flex h-full flex-col">
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-2.5">
           <span className="text-[11px] font-semibold text-[var(--muted-foreground)]">侧栏</span>
-          <button type="button" onClick={closeAll} aria-label="关闭侧栏" className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"><X size={14} /></button>
+          <div className="flex items-center gap-1">
+            {launcher}
+            <button type="button" onClick={closeAll} aria-label="关闭侧栏" className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"><X size={14} /></button>
+          </div>
         </div>
         {/* 生成中没有产物标签：直接展示实时预览（用户要求"用侧栏那套展示"）。
             原来实时预览是主区域独立的 35% 右栏，与产物面板抢宽度。 */}
@@ -145,31 +148,63 @@ export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages, is
             hasArtifact={false}
             compact
           />
-        ) : available.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center px-6">
-            <p className="text-center text-[11px] leading-relaxed text-[var(--muted-foreground)]">
-              这个会话还没有产物。<br />生成 PPT、网站、文档或上传图片后，会出现在这里。
-            </p>
-          </div>
         ) : (
-            <ul className="flex flex-col gap-1 p-3">
-              {available.map((t) => {
-                const Icon = KIND_ICON[t.kind];
-                return (
-                  <li key={t.id}>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {/* 工作台启动器：文件 / 产物库 / 运行日志 */}
+            <div className="px-3 pb-2 pt-3">
+              <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                工作区
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                {LAUNCHERS.map((item) => {
+                  const Icon = item.icon;
+                  return (
                     <button
+                      key={item.kind}
                       type="button"
-                      onClick={() => openTab(t)}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+                      onClick={() => openTab(panelTab(item.kind))}
+                      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-2.5 text-left transition-all hover:border-[var(--ring)] hover:bg-[var(--surface-2)] active:scale-[0.98]"
                     >
-                      <Icon size={13} className="shrink-0" />
-                      <span className="truncate">{t.title}</span>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--muted-foreground)] transition-colors group-hover:text-[var(--ring)]">
+                        <Icon size={17} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-semibold text-[var(--foreground)]">{item.label}</span>
+                        <span className="block truncate text-[10px] text-[var(--muted-foreground)]">{item.desc}</span>
+                      </span>
                     </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 本次会话的产物（可打开项） */}
+            {available.length > 0 && (
+              <div className="border-t border-[var(--border-subtle)] px-3 py-3">
+                <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                  本次会话 · {available.length} 项产物
+                </p>
+                <ul className="flex flex-col gap-1">
+                  {available.map((t) => {
+                    const Icon = KIND_ICON[t.kind];
+                    return (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          onClick={() => openTab(t)}
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+                        >
+                          <Icon size={13} className="shrink-0" />
+                          <span className="truncate">{t.title}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -213,18 +248,21 @@ export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages, is
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={closeAll}
-          aria-label="关闭侧栏"
-          className="shrink-0 px-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-        >
-          <X size={14} />
-        </button>
+        <div className="flex shrink-0 items-center">
+          {launcher}
+          <button
+            type="button"
+            onClick={closeAll}
+            aria-label="关闭侧栏"
+            className="shrink-0 px-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {active ? <TabBody tab={active} sessionId={sessionId} messages={messages} /> : null}
+        {active ? <TabBody tab={active} sessionId={sessionId} messages={messages} workspaceOutputs={workspaceOutputs} /> : null}
       </div>
     </div>
   );
@@ -318,9 +356,146 @@ const WebsiteTabBody: React.FC<{ tab: SidebarTab; sessionId: string | null }> = 
   );
 };
 
+/**
+ * 工作区产物标签（html / 图片 / 数据文件）。
+ *
+ * 读取端点带鉴权，iframe / `<img src>` 不会自动带 Authorization header，
+ * 所以统一走 apiFetch 取回内容再内联渲染：html → srcDoc（sandbox 不给
+ * allow-same-origin，模型生成的脚本拿不到父页面），图片 → objectURL，
+ * 其余数据类型 → 文本预览 + 下载按钮。
+ */
+const OutputTabBody: React.FC<{ tab: SidebarTab }> = ({ tab }) => {
+  const url = tab.url ?? '';
+  const kind = tab.outputKind;
+  const [text, setText] = React.useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    let created: string | null = null;
+    setError(null);
+    setText(null);
+    setBlobUrl(null);
+    apiFetch<string | Blob>(url, { responseType: kind === 'image' ? 'blob' : 'text' }, '加载产物失败')
+      .then((data) => {
+        if (cancelled) return;
+        if (kind === 'image') {
+          created = URL.createObjectURL(data as Blob);
+          setBlobUrl(created);
+        } else {
+          setText(data as string);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : '加载产物失败');
+      });
+    return () => {
+      cancelled = true;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [url, kind]);
+
+  // 带鉴权端点用 blob 下载：直接 a.href=url 不会带 header，会 401。
+  const downloadWithAuth = async () => {
+    try {
+      const blob = await apiFetch<Blob>(url, { responseType: 'blob' }, '下载产物失败');
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = tab.title;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '下载产物失败');
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+        <FileText size={26} className="text-[var(--muted-foreground)]" />
+        <p className="text-xs text-[var(--muted-foreground)]">{error}</p>
+        <button type="button" onClick={downloadWithAuth} className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-[11px] hover:bg-[var(--surface-2)]">重试下载</button>
+      </div>
+    );
+  }
+
+  if (kind === 'html') {
+    if (text == null) return <div className="flex h-full items-center justify-center text-xs text-[var(--muted-foreground)]">正在加载预览…</div>;
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2">
+          <span className="truncate text-[11px] text-[var(--muted-foreground)]">{tab.title}</span>
+          <button type="button" onClick={downloadWithAuth} className="inline-flex items-center gap-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"><Download size={12} />下载</button>
+        </div>
+        <iframe
+          title={tab.title}
+          srcDoc={text}
+          sandbox="allow-scripts allow-forms allow-popups"
+          className="min-h-0 w-full flex-1 border-0 bg-white"
+        />
+      </div>
+    );
+  }
+
+  if (kind === 'image') {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
+        {blobUrl ? (
+          <img src={blobUrl} alt={tab.title} className="max-h-full max-w-full rounded-lg border border-[var(--border-subtle)] object-contain" />
+        ) : (
+          <p className="text-xs text-[var(--muted-foreground)]">正在加载图片…</p>
+        )}
+        <button type="button" onClick={downloadWithAuth} className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-[11px] hover:bg-[var(--surface-2)]"><Download size={12} />下载图片</button>
+      </div>
+    );
+  }
+
+  // csv / json / txt / md：文本预览；xlsx 只提供下载。
+  const canPreview = /\.(csv|json|txt|md)$/i.test(tab.title);
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2">
+        <span className="truncate text-[11px] text-[var(--muted-foreground)]">{tab.title}</span>
+        <button type="button" onClick={downloadWithAuth} className="inline-flex items-center gap-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"><Download size={12} />下载</button>
+      </div>
+      {canPreview ? (
+        text == null ? (
+          <p className="p-4 text-xs text-[var(--muted-foreground)]">正在加载…</p>
+        ) : (
+          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-[11px] leading-relaxed text-[var(--foreground)]">{text}</pre>
+        )
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+          <FileText size={26} className="text-[var(--muted-foreground)]" />
+          <p className="text-xs text-[var(--muted-foreground)]">该格式请在下载后用本地软件打开。</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 /** 标签内容：按类型在侧栏内就地渲染 */
-const TabBody: React.FC<{ tab: SidebarTab; sessionId: string | null; messages: Message[] }> = ({ tab, sessionId, messages }) => {
+const TabBody: React.FC<{ tab: SidebarTab; sessionId: string | null; messages: Message[]; workspaceOutputs?: import('../../lib/workspaceArtifacts').WorkspaceEntry[] }> = ({ tab, sessionId, messages, workspaceOutputs = [] }) => {
   const setArtifact = useChatStore((s) => s.setArtifact);
+  const closeSidebarTab = useChatStore((s) => s.closeSidebarTab);
+
+  // 功能面板：复用已有的会话级面板组件（产物库 / 文件树 / 运行日志）
+  if (tab.kind === 'files' || tab.kind === 'run-log' || tab.kind === 'artifacts') {
+    const props = { sessionId: sessionId ?? '', messages, onClose: () => closeSidebarTab(tab.id), workspaceOutputs };
+    if (tab.kind === 'files') return <FilesPanel {...props} />;
+    if (tab.kind === 'run-log') return <RunLogPanel {...props} />;
+    return <ArtifactsPanel {...props} />;
+  }
+
+  // 工作区文件产物（html / csv / xlsx / json / txt / md / 图片）：就地预览 + 下载
+  if (tab.kind === 'output') {
+    return <OutputTabBody tab={tab} />;
+  }
 
   // PPT：**必须复用 PptArtifactPanel**，不能只渲染裸 iframe。
   // 主题切换 / 导出 PPTX / 发布到作品库这些按钮长在该面板上，

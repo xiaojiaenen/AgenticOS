@@ -41,12 +41,22 @@ function parseErrorPayload(raw: string): string | null {
 
 let redirectingToLogin = false;
 
+/**
+ * 401 跳转登录页的目标 URL：带上原始 pathname(+search) 作为 `from` 查询参数，
+ * 登录成功后读取它回到原页面（ProtectedRoute 的 state.from 是另一条路径，
+ * 硬跳转不会带 state，因此必须靠 query 兜底）。
+ */
+export function buildLoginRedirectUrl(fromPath: string): string {
+  const from = fromPath.startsWith('/') ? fromPath : `/${fromPath}`;
+  return `/login?from=${encodeURIComponent(from)}`;
+}
+
 function handleUnauthorized(): void {
   clearAuthSession();
-  const { pathname } = window.location;
+  const { pathname, search } = window.location;
   if (!redirectingToLogin && pathname !== '/login' && pathname !== '/signup') {
     redirectingToLogin = true;
-    window.location.assign('/login');
+    window.location.assign(buildLoginRedirectUrl(`${pathname}${search}`));
   }
 }
 
@@ -137,6 +147,65 @@ export async function apiFetch<T>(
       throw err; // 调用方主动取消，保持 AbortError 语义
     }
     // 网络层错误（断网 / DNS / CORS）
+    throw new ApiError(0, err, err instanceof Error ? err.message : '网络请求失败');
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+
+/**
+ * 服务端分页版 apiFetch：解析后端响应头 X-Total-Count 作为总数。
+ * 用于列表端点（知识库文档/Wiki 等）配合统一 <Pagination> 做真正的服务端分页。
+ */
+export async function apiFetchPaged<T>(
+  url: string,
+  options: ApiFetchOptions = {},
+  errorMessage?: string,
+): Promise<{ items: T; total: number }> {
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, responseType: _responseType, ...init } = options;
+  const controller = new AbortController();
+  combineSignals(init.signal, controller);
+  // 与 apiFetch 共用超时归一化语义：区分「调用方取消」与「我们自己的超时」，
+  // 超时必须包装成 ApiError(status=0)，而不是把裸 AbortError 抛给调用方
+  // （分页面板会把裸 AbortError 当成未处理异常，看不到可读的超时提示）。
+  let timedOut = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  if (timeoutMs !== 0 && timeoutMs !== Infinity) {
+    timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
+  }
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        ...authHeaders(),
+        ...(typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.headers || {}),
+      },
+    });
+    if (response.status === 401) {
+      handleUnauthorized();
+      throw new ApiError(401, null, errorMessage || '登录已过期');
+    }
+    if (!response.ok) {
+      const raw = await response.text().catch(() => '');
+      throw new ApiError(response.status, parseErrorPayload(raw), localizeError(parseErrorPayload(raw), errorMessage || '请求失败'));
+    }
+    const headerTotal = Number(response.headers.get('X-Total-Count') ?? '0');
+    const data = (await response.json()) as T;
+    return { items: data, total: Number.isFinite(headerTotal) ? headerTotal : 0 };
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      if (timedOut) {
+        throw new ApiError(0, null, `请求超时（${Math.round(timeoutMs / 1000)} 秒），请稍后重试`);
+      }
+      throw err; // 调用方主动取消，保持 AbortError 语义
+    }
     throw new ApiError(0, err, err instanceof Error ? err.message : '网络请求失败');
   } finally {
     if (timer) clearTimeout(timer);
