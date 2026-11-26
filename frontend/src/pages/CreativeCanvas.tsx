@@ -12,14 +12,10 @@ import {
   Handle,
   Position,
   NodeToolbar,
-  useNodesState,
-  useEdgesState,
   useReactFlow,
-  addEdge,
   type Node,
   type Edge,
   type NodeProps,
-  type Connection,
   type NodeTypes,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -49,25 +45,37 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Redo2,
   RefreshCw,
   RotateCcw,
   Shield,
   Sparkles,
   StickyNote,
   Trash2,
+  Undo2,
   Upload,
   Wand2,
   X,
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { InpaintMaskStage, type MaskTool } from '../components/canvas/InpaintMaskStage';
+import { layoutCanvasGraph } from '../lib/canvasAutoLayout';
+import {
+  buildStudioPosterSvg,
+  STUDIO_PALETTES,
+  useCanvasStore,
+  type ArtworkData,
+  type NoteData,
+  type QualityTier,
+  type ResolutionTier,
+  type StudioNode,
+} from '../stores/canvasStore';
 import { cn } from '../lib/utils';
 import { canEnterAdmin, getStoredUser } from '@/services/authTokenStore';
 
 type CanvasMode = 'focus' | 'infinite';
 type InfiniteTool = 'select' | 'hand';
-type ResolutionTier = '1K' | '2K' | '4K';
-type QualityTier = 'fast' | 'balanced' | 'fine';
 
 interface AspectOption {
   id: string;
@@ -77,42 +85,6 @@ interface AspectOption {
   iconW: number;
   iconH: number;
 }
-
-interface ArtworkData extends Record<string, unknown> {
-  kind: 'artwork';
-  title: string;
-  prompt: string;
-  model: string;
-  aspectId: string;
-  resolution: ResolutionTier;
-  quality: QualityTier;
-  width: number;
-  height: number;
-  durationSec: number;
-  createdAt: string;
-  liked: boolean;
-  dataUrl: string;
-  nodeW: number;
-  nodeH: number;
-  onDerive?: (id: string) => void;
-  onOpenEdit?: (id: string) => void;
-  onFocus?: (id: string) => void;
-  onDownload?: (id: string) => void;
-  onDuplicate?: (id: string) => void;
-  onDelete?: (id: string) => void;
-}
-
-interface NoteData extends Record<string, unknown> {
-  kind: 'note';
-  title: string;
-  text: string;
-  noteColor: 'amber' | 'indigo';
-  onChangeText?: (id: string, text: string) => void;
-  onDuplicate?: (id: string) => void;
-  onDelete?: (id: string) => void;
-}
-
-type StudioNode = Node<ArtworkData, 'artwork'> | Node<NoteData, 'note'>;
 
 const ASPECT_OPTIONS: AspectOption[] = [
   { id: '1:1', label: '1:1', w: 1024, h: 1024, iconW: 12, iconH: 12 },
@@ -144,68 +116,8 @@ const TIER_SCALE: Record<ResolutionTier, number> = {
   '4K': 2,
 };
 
-function buildStudioPosterSvg(opts: {
-  title: string;
-  subtitle: string;
-  palette: [string, string, string];
-  aspectW: number;
-  aspectH: number;
-  badge: string;
-}): string {
-  const { title, subtitle, palette, aspectW, aspectH, badge } = opts;
-  const [c1, c2, c3] = palette;
-  const safeTitle = title.replace(/[<>&"']/g, '').slice(0, 18) || '创意视觉设计';
-  const safeSub = subtitle.replace(/[<>&"']/g, '').slice(0, 32) || 'AgenticOS Creative Studio';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${aspectW} ${aspectH}" width="${aspectW}" height="${aspectH}">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${c1}"/>
-      <stop offset="55%" stop-color="${c2}"/>
-      <stop offset="100%" stop-color="${c3}"/>
-    </linearGradient>
-    <radialGradient id="glow1" cx="72%" cy="24%" r="48%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.42"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="glow2" cx="22%" cy="82%" r="52%">
-      <stop offset="0%" stop-color="#fef08a" stop-opacity="0.28"/>
-      <stop offset="100%" stop-color="#fef08a" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="glass" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.24"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.06"/>
-    </linearGradient>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#bg)"/>
-  <rect width="100%" height="100%" fill="url(#glow1)"/>
-  <rect width="100%" height="100%" fill="url(#glow2)"/>
-  <g opacity="0.16" stroke="#ffffff" fill="none">
-    <circle cx="${aspectW * 0.5}" cy="${aspectH * 0.44}" r="${Math.min(aspectW, aspectH) * 0.34}" stroke-width="1.5" stroke-dasharray="6 8"/>
-    <circle cx="${aspectW * 0.5}" cy="${aspectH * 0.44}" r="${Math.min(aspectW, aspectH) * 0.24}" stroke-width="1.2"/>
-    <circle cx="${aspectW * 0.5}" cy="${aspectH * 0.44}" r="${Math.min(aspectW, aspectH) * 0.14}" stroke-width="1"/>
-  </g>
-  <rect x="${aspectW * 0.08}" y="${aspectH * 0.06}" width="176" height="36" rx="18" fill="url(#glass)" stroke="rgba(255,255,255,0.35)"/>
-  <text x="${aspectW * 0.08 + 88}" y="${aspectH * 0.06 + 23}" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14" font-weight="600" letter-spacing="1.5">${badge}</text>
-  <g transform="translate(${aspectW * 0.5}, ${aspectH * 0.44})">
-    <polygon points="0,-110 95,55 -95,55" fill="url(#glass)" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
-    <circle cx="0" cy="-10" r="46" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
-  </g>
-  <rect x="${aspectW * 0.08}" y="${aspectH * 0.68}" width="${aspectW * 0.84}" height="${aspectH * 0.24}" rx="28" fill="rgba(15,23,42,0.28)" stroke="rgba(255,255,255,0.26)"/>
-  <text x="${aspectW * 0.5}" y="${aspectH * 0.78}" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="${Math.round(Math.min(aspectW, aspectH) * 0.062)}" font-weight="800" letter-spacing="2">${safeTitle}</text>
-  <text x="${aspectW * 0.5}" y="${aspectH * 0.855}" text-anchor="middle" fill="rgba(255,255,255,0.84)" font-family="system-ui, sans-serif" font-size="${Math.round(Math.min(aspectW, aspectH) * 0.024)}" font-weight="500">${safeSub}</text>
-</svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-const PALETTES: [string, string, string][] = [
-  ['#1d4ed8', '#3b82f6', '#0f172a'],
-  ['#4f46e5', '#7c3aed', '#1e1b4b'],
-  ['#0f766e', '#0ea5e9', '#0f172a'],
-  ['#b45309', '#e11d48', '#1f1629'],
-];
-
 /* ============================================================================
-   Custom @xyflow/react Nodes (Defined Outside Component for Stable Identity)
+   Custom @xyflow/react Nodes (Stable Module-Level References)
    ============================================================================ */
 
 const ArtworkNode: React.FC<NodeProps<Node<ArtworkData, 'artwork'>>> = ({ id, data, selected }) => {
@@ -356,152 +268,40 @@ const NODE_TYPES: NodeTypes = {
   note: StickyNoteNode,
 };
 
-const INITIAL_NODES: StudioNode[] = [
-  {
-    id: 'art-1',
-    type: 'artwork',
-    position: { x: 64, y: 80 },
-    data: {
-      kind: 'artwork',
-      title: '品牌周年庆典主视觉海报',
-      prompt: '设计一张高端大气的企业品牌周年庆典主视觉海报，蓝金渐变天空与现代城市天际线，居中立体数字与极简中文排版，电影级体积光',
-      model: 'gpt-image-2.5',
-      aspectId: '3:4',
-      resolution: '2K',
-      quality: 'balanced',
-      width: 1152,
-      height: 1536,
-      durationSec: 18.4,
-      createdAt: '今天 16:40',
-      liked: true,
-      dataUrl: buildStudioPosterSvg({
-        title: '品牌周年庆典',
-        subtitle: '十五载同行 · 再启新程 · STUDIO EDITION',
-        palette: PALETTES[0],
-        aspectW: 768,
-        aspectH: 1024,
-        badge: 'AGENTICOS STUDIO',
-      }),
-      nodeW: 256,
-      nodeH: 360,
-    },
-  },
-  {
-    id: 'art-2',
-    type: 'artwork',
-    position: { x: 432, y: 32 },
-    data: {
-      kind: 'artwork',
-      title: '周年庆典 · 紫金光晕变体',
-      prompt: '在原周年庆典海报基础上改为深紫与靛蓝玻璃折射质感，增强主标题金属光泽，保留极简构图',
-      model: 'flux-pro-ultra',
-      aspectId: '3:4',
-      resolution: '2K',
-      quality: 'fine',
-      width: 1152,
-      height: 1536,
-      durationSec: 21.3,
-      createdAt: '今天 16:45',
-      liked: false,
-      dataUrl: buildStudioPosterSvg({
-        title: '周年庆典 · 精修版',
-        subtitle: '紫金流光玻璃折射视觉变体',
-        palette: PALETTES[1],
-        aspectW: 768,
-        aspectH: 1024,
-        badge: 'FLUX PRO ULTRA',
-      }),
-      nodeW: 256,
-      nodeH: 360,
-    },
-  },
-  {
-    id: 'art-3',
-    type: 'artwork',
-    position: { x: 432, y: 432 },
-    data: {
-      kind: 'artwork',
-      title: '周年庆典 · 横版大屏 KV',
-      prompt: '将品牌周年主视觉延展为 16:9 发布会大屏横版主视觉，清透青蓝科技光晕，左侧留白放演讲信息',
-      model: 'seedream-3.0',
-      aspectId: '16:9',
-      resolution: '2K',
-      quality: 'balanced',
-      width: 1920,
-      height: 1080,
-      durationSec: 14.8,
-      createdAt: '今天 16:49',
-      liked: false,
-      dataUrl: buildStudioPosterSvg({
-        title: 'KEYNOTE STAGE KV',
-        subtitle: '16:9 发布会主屏延展视觉方案',
-        palette: PALETTES[2],
-        aspectW: 1280,
-        aspectH: 720,
-        badge: 'SEEDREAM 3.0',
-      }),
-      nodeW: 304,
-      nodeH: 214,
-    },
-  },
-  {
-    id: 'note-1',
-    type: 'note',
-    position: { x: 64, y: 480 },
-    data: {
-      kind: 'note',
-      title: '视觉风格备忘',
-      text: '1. 主视觉保持冷暖对比光影\n2. 底部产品列阵留足呼吸感\n3. 导出前确认 2K 清晰度文字边缘',
-      noteColor: 'amber',
-    },
-  },
-];
-
-const INITIAL_EDGES: Edge[] = [
-  {
-    id: 'e-art1-art2',
-    source: 'art-1',
-    target: 'art-2',
-    label: '指令改图',
-    animated: true,
-    style: { stroke: '#6366f1', strokeWidth: 2 },
-    labelStyle: { fill: '#ffffff', fontSize: 10, fontWeight: 600 },
-    labelBgStyle: { fill: '#4f46e5', fillOpacity: 0.92 },
-    labelBgPadding: [6, 3],
-    labelBgBorderRadius: 10,
-  },
-  {
-    id: 'e-art1-art3',
-    source: 'art-1',
-    target: 'art-3',
-    label: '画幅延展',
-    animated: true,
-    style: { stroke: '#0ea5e9', strokeWidth: 2 },
-    labelStyle: { fill: '#ffffff', fontSize: 10, fontWeight: 600 },
-    labelBgStyle: { fill: '#0284c7', fillOpacity: 0.92 },
-    labelBgPadding: [6, 3],
-    labelBgBorderRadius: 10,
-  },
-];
-
 const CreativeCanvasInner: React.FC = () => {
   const navigate = useNavigate();
   const [user] = useState(() => getStoredUser());
   const isAdmin = canEnterAdmin();
   const { fitView, zoomIn, zoomOut, getZoom, screenToFlowPosition } = useReactFlow();
 
+  // Zustand + zundo temporal store
+  const nodes = useCanvasStore((s) => s.nodes);
+  const edges = useCanvasStore((s) => s.edges);
+  const onNodesChange = useCanvasStore((s) => s.onNodesChange);
+  const onEdgesChange = useCanvasStore((s) => s.onEdgesChange);
+  const onConnect = useCanvasStore((s) => s.onConnect);
+  const setNodes = useCanvasStore((s) => s.setNodes);
+  const addNodesAndEdges = useCanvasStore((s) => s.addNodesAndEdges);
+  const deleteNode = useCanvasStore((s) => s.deleteNode);
+  const duplicateNode = useCanvasStore((s) => s.duplicateNode);
+  const updateNoteText = useCanvasStore((s) => s.updateNoteText);
+  const toggleLike = useCanvasStore((s) => s.toggleLike);
+  const selectOnly = useCanvasStore((s) => s.selectOnly);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>('infinite');
   const [tool, setTool] = useState<InfiniteTool>('select');
-  const [nodes, setNodes, onNodesChange] = useNodesState<StudioNode>(INITIAL_NODES);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(INITIAL_EDGES);
   const [activeId, setActiveId] = useState<string>('art-1');
   const [zoomPct, setZoomPct] = useState<number>(100);
   const [focusZoom, setFocusZoom] = useState<number>(100);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [historyTick, setHistoryTick] = useState(0);
 
   // Right inspector state
-  const [prompt, setPrompt] = useState((INITIAL_NODES[0].data as ArtworkData).prompt);
+  const [prompt, setPrompt] = useState(() => {
+    const first = nodes.find((n) => n.data.kind === 'artwork');
+    return first ? (first.data as ArtworkData).prompt : '';
+  });
   const [model, setModel] = useState(MODEL_OPTIONS[0].id);
   const [aspectId, setAspectId] = useState<string>('3:4');
   const [resolution, setResolution] = useState<ResolutionTier>('2K');
@@ -511,15 +311,47 @@ const CreativeCanvasInner: React.FC = () => {
   const [showCameraMenu, setShowCameraMenu] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Focus mode inpainting & quick edit
+  // Konva inpainting mask state (Focus Mode)
   const [inpaintMode, setInpaintMode] = useState(false);
+  const [maskTool, setMaskTool] = useState<MaskTool>('brush');
   const [brushSize, setBrushSize] = useState(28);
+  const [clearMaskSignal, setClearMaskSignal] = useState(0);
+  const [undoMaskSignal, setUndoMaskSignal] = useState(0);
+  const [focusImgSize, setFocusImgSize] = useState<{ w: number; h: number }>({ w: 480, h: 640 });
+  const focusImgRef = useRef<HTMLImageElement | null>(null);
+  const maskExporterRef = useRef<(() => string | null) | null>(null);
+
+  // Instruction edit bar
   const [editBarOpen, setEditBarOpen] = useState(false);
   const [editInstruction, setEditInstruction] = useState('');
   const [copiedPrompt, setCopiedPrompt] = useState(false);
-  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawingRef = useRef(false);
   const refFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const canUndo = useMemo(() => {
+    void historyTick;
+    return useCanvasStore.temporal.getState().pastStates.length > 0;
+  }, [nodes, edges, historyTick]);
+
+  const canRedo = useMemo(() => {
+    void historyTick;
+    return useCanvasStore.temporal.getState().futureStates.length > 0;
+  }, [nodes, edges, historyTick]);
+
+  const handleUndo = useCallback(() => {
+    const temporal = useCanvasStore.temporal.getState();
+    if (temporal.pastStates.length === 0) return;
+    temporal.undo();
+    setHistoryTick((t) => t + 1);
+    toast.info('已撤销上一步操作');
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    const temporal = useCanvasStore.temporal.getState();
+    if (temporal.futureStates.length === 0) return;
+    temporal.redo();
+    setHistoryTick((t) => t + 1);
+    toast.info('已重做操作');
+  }, []);
 
   const activeNode = useMemo(
     () =>
@@ -544,30 +376,48 @@ const CreativeCanvasInner: React.FC = () => {
     };
   }, [selectedAspect, resolution]);
 
-  const clearMask = useCallback(() => {
-    const cvs = maskCanvasRef.current;
-    if (!cvs) return;
-    const ctx = cvs.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, cvs.width, cvs.height);
-  }, []);
-
-  useEffect(() => {
-    clearMask();
-  }, [activeId, inpaintMode, clearMask]);
-
-  // Sync keyboard shortcuts V (select) / H (hand)
+  // Keyboard shortcuts: Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y / V / H
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      const inEditable =
+        target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !inEditable) {
+        e.preventDefault();
+        if (e.shiftKey) handleRedo();
+        else handleUndo();
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !inEditable) {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+      if (inEditable) return;
+
       if (e.key.toLowerCase() === 'v') setTool('select');
       else if (e.key.toLowerCase() === 'h') setTool('hand');
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [handleUndo, handleRedo]);
+
+  // Measure rendered Focus image dimensions for Konva Stage alignment
+  useEffect(() => {
+    if (canvasMode !== 'focus') return;
+    const img = focusImgRef.current;
+    if (!img) return;
+    const syncSize = () => {
+      if (img.clientWidth > 0 && img.clientHeight > 0) {
+        setFocusImgSize({ w: img.clientWidth, h: img.clientHeight });
+      }
+    };
+    syncSize();
+    const ro = new ResizeObserver(syncSize);
+    ro.observe(img);
+    return () => ro.disconnect();
+  }, [canvasMode, activeId, focusZoom]);
 
   const syncInspectorFromNode = useCallback((node: StudioNode) => {
     setActiveId(node.id);
@@ -597,41 +447,38 @@ const CreativeCanvasInner: React.FC = () => {
     [nodes],
   );
 
+  const handleExportMask = () => {
+    const dataUrl = maskExporterRef.current?.();
+    if (!dataUrl) {
+      toast.info('请先在画面上涂抹选区');
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `inpaint_mask_${activeId}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('已导出 Konva 局部精修 PNG 蒙版');
+  };
+
   const handleDeleteById = useCallback(
     (id: string) => {
-      setNodes((nds) => nds.filter((n) => n.id !== id));
-      setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+      deleteNode(id);
       toast.success('已删除画布元素');
     },
-    [setNodes, setEdges],
+    [deleteNode],
   );
 
   const handleDuplicateById = useCallback(
     (id: string) => {
-      const orig = nodes.find((n) => n.id === id);
-      if (!orig) return;
-      const newId = `${orig.data.kind}-${Date.now()}`;
-      const cloned: StudioNode =
-        orig.type === 'artwork'
-          ? {
-              ...orig,
-              id: newId,
-              selected: true,
-              position: { x: orig.position.x + 48, y: orig.position.y + 48 },
-              data: { ...(orig.data as ArtworkData), title: `${(orig.data as ArtworkData).title} 副本` },
-            }
-          : {
-              ...orig,
-              id: newId,
-              selected: true,
-              position: { x: orig.position.x + 48, y: orig.position.y + 48 },
-              data: { ...(orig.data as NoteData), title: `${(orig.data as NoteData).title} 副本` },
-            };
-      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), cloned]);
-      setActiveId(newId);
-      toast.success('已复制节点');
+      const newId = duplicateNode(id);
+      if (newId) {
+        setActiveId(newId);
+        toast.success('已复制节点');
+      }
     },
-    [nodes, setNodes],
+    [duplicateNode],
   );
 
   const handleGenerate = useCallback(
@@ -654,7 +501,7 @@ const CreativeCanvasInner: React.FC = () => {
       const createdEdges: Edge[] = [];
 
       for (let idx = 0; idx < batchCount; idx++) {
-        const palette = PALETTES[(nodes.length + idx) % PALETTES.length];
+        const palette = STUDIO_PALETTES[(nodes.length + idx) % STUDIO_PALETTES.length];
         const shortTitle = finalPrompt.replace(/[，。,.!?！？].*$/, '').slice(0, 14) || '新建视觉作品';
         const newId = `art-${Date.now()}-${idx}`;
         const parentW =
@@ -713,10 +560,7 @@ const CreativeCanvasInner: React.FC = () => {
         }
       }
 
-      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...createdNodes]);
-      if (createdEdges.length > 0) {
-        setEdges((eds) => [...eds, ...createdEdges]);
-      }
+      addNodesAndEdges(createdNodes, createdEdges);
       setActiveId(createdNodes[0].id);
       setEditBarOpen(false);
       setEditInstruction('');
@@ -724,10 +568,10 @@ const CreativeCanvasInner: React.FC = () => {
       setIsGenerating(false);
       toast.success(`已生成 ${createdNodes.length} 张作品${parentNode ? '并建立衍生连线' : ''}`);
     },
-    [prompt, nodes, selectedAspect, batchCount, model, aspectId, resolution, quality, outputPixels, setNodes, setEdges],
+    [prompt, nodes, selectedAspect, batchCount, model, aspectId, resolution, quality, outputPixels, addNodesAndEdges],
   );
 
-  // Inject interactive callbacks into nodes cleanly
+  // Inject interactive callbacks into nodes
   const decoratedNodes = useMemo<StudioNode[]>(
     () =>
       nodes.map((node) => {
@@ -767,42 +611,13 @@ const CreativeCanvasInner: React.FC = () => {
           ...node,
           data: {
             ...(node.data as NoteData),
-            onChangeText: (id: string, text: string) => {
-              setNodes((nds) =>
-                nds.map((n) =>
-                  n.id === id && n.type === 'note'
-                    ? { ...n, data: { ...(n.data as NoteData), text } }
-                    : n,
-                ),
-              );
-            },
+            onChangeText: updateNoteText,
             onDuplicate: handleDuplicateById,
             onDelete: handleDeleteById,
           },
         };
       }),
-    [nodes, handleGenerate, syncInspectorFromNode, handleDownloadById, handleDuplicateById, handleDeleteById, setNodes],
-  );
-
-  const onConnect = useCallback(
-    (connection: Connection) => {
-      setEdges((eds) =>
-        addEdge(
-          {
-            ...connection,
-            animated: true,
-            label: '参考关联',
-            style: { stroke: '#6366f1', strokeWidth: 2 },
-            labelStyle: { fill: '#ffffff', fontSize: 10, fontWeight: 600 },
-            labelBgStyle: { fill: '#4f46e5', fillOpacity: 0.92 },
-            labelBgPadding: [6, 3],
-            labelBgBorderRadius: 10,
-          },
-          eds,
-        ),
-      );
-    },
-    [setEdges],
+    [nodes, handleGenerate, syncInspectorFromNode, handleDownloadById, handleDuplicateById, handleDeleteById, updateNoteText],
   );
 
   const handleAddNote = () => {
@@ -819,24 +634,18 @@ const CreativeCanvasInner: React.FC = () => {
         noteColor: 'indigo',
       },
     };
-    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), noteNode]);
+    addNodesAndEdges([noteNode]);
     setActiveId(newId);
     setCanvasMode('infinite');
     toast.success('已在画布添加便签卡片');
   };
 
-  const handleTidyUp = () => {
-    const cols = 3;
-    const colW = 352;
-    const rowH = 416;
-    setNodes((nds) =>
-      nds.map((n, idx) => ({
-        ...n,
-        position: { x: 64 + (idx % cols) * colW, y: 64 + Math.floor(idx / cols) * rowH },
-      })),
-    );
-    setTimeout(() => fitView({ padding: 0.16, duration: 350 }), 40);
-    toast.success('已按网格自动整理画布');
+  // Auto-layout using @dagrejs/dagre
+  const handleDagreAutoLayout = (direction: 'LR' | 'TB' = 'LR') => {
+    const laidOut = layoutCanvasGraph(nodes, edges, direction);
+    setNodes(laidOut);
+    setTimeout(() => fitView({ padding: 0.16, duration: 360 }), 40);
+    toast.success(direction === 'LR' ? '已按 Dagre 横向衍生树自动排版' : '已按 Dagre 纵向树自动排版');
   };
 
   const handleStageDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -868,7 +677,7 @@ const CreativeCanvasInner: React.FC = () => {
         nodeH: 320,
       },
     }));
-    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...added]);
+    addNodesAndEdges(added);
     setActiveId(added[0].id);
     setCanvasMode('infinite');
     toast.success(`已将 ${added.length} 张本地图片置入无限画布`);
@@ -904,31 +713,6 @@ const CreativeCanvasInner: React.FC = () => {
     } catch {
       toast.error('复制失败，请手动复制');
     }
-  };
-
-  const handleToggleLike = () => {
-    if (!activeNode || activeNode.type !== 'artwork') return;
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === activeNode.id && n.type === 'artwork'
-          ? { ...n, data: { ...(n.data as ArtworkData), liked: !(n.data as ArtworkData).liked } }
-          : n,
-      ),
-    );
-  };
-
-  const paintAt = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const cvs = maskCanvasRef.current;
-    if (!cvs) return;
-    const rect = cvs.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * cvs.width;
-    const y = ((e.clientY - rect.top) / rect.height) * cvs.height;
-    const ctx = cvs.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = 'rgba(99, 102, 241, 0.48)';
-    ctx.beginPath();
-    ctx.arc(x, y, brushSize, 0, Math.PI * 2);
-    ctx.fill();
   };
 
   return (
@@ -1024,7 +808,7 @@ const CreativeCanvasInner: React.FC = () => {
                     type="button"
                     onClick={() => {
                       syncInspectorFromNode(node);
-                      setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === node.id })));
+                      selectOnly(node.id);
                     }}
                     className={cn(
                       'flex items-center gap-2.5 rounded-xl p-1.5 text-left transition-all',
@@ -1138,15 +922,35 @@ const CreativeCanvasInner: React.FC = () => {
 
           <div className="flex items-center gap-1.5">
             {canvasMode === 'infinite' && (
-              <button
-                type="button"
-                onClick={handleTidyUp}
-                className="hidden h-8 items-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/80 px-2.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] sm:inline-flex"
-                title="一键网格整理"
-              >
-                <LayoutGrid size={13} />
-                整理
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/80 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] disabled:opacity-35"
+                  title="撤销 (Ctrl+Z)"
+                >
+                  <Undo2 size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/80 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] disabled:opacity-35"
+                  title="重做 (Ctrl+Shift+Z)"
+                >
+                  <Redo2 size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDagreAutoLayout('LR')}
+                  className="hidden h-8 items-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/80 px-2.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] sm:inline-flex"
+                  title="Dagre 有向树自动排版"
+                >
+                  <GitBranch size={13} />
+                  自动排版
+                </button>
+              </>
             )}
 
             <div className="flex items-center gap-0.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/80 px-1 py-0.5">
@@ -1260,7 +1064,6 @@ const CreativeCanvasInner: React.FC = () => {
                 className="!rounded-2xl !border !border-[var(--border-subtle)] !bg-[var(--surface-1)]/85 !shadow-lg !backdrop-blur-xl"
               />
 
-              {/* Bottom-Center Floating Tool Dock */}
               <Panel position="bottom-center" className="!mb-4">
                 <div className="aos-glass-rail flex items-center gap-1 rounded-2xl p-1.5 shadow-xl">
                   <button
@@ -1315,12 +1118,12 @@ const CreativeCanvasInner: React.FC = () => {
 
               <Panel position="bottom-left" className="!mb-4 !ml-3 hidden xl:block">
                 <div className="rounded-xl bg-[var(--surface-1)]/75 px-3 py-1.5 text-[11px] text-[var(--muted-foreground)] backdrop-blur-md">
-                  由 @xyflow/react 驱动 · 滚轮平移 / 双指缩放 · 拖入本地图片直达画布
+                  @xyflow/react · Dagre 自动排版 · Zundo 撤销重做 · 拖入图片直达画布
                 </div>
               </Panel>
             </ReactFlow>
           ) : (
-            /* Focus View with Inpainting Mask */
+            /* Focus View with Konva Inpainting Mask Stage */
             <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 pb-24 pt-6">
               <AnimatePresence>
                 {inpaintMode && (
@@ -1328,14 +1131,38 @@ const CreativeCanvasInner: React.FC = () => {
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -12 }}
-                    className="aos-glass-rail absolute top-4 z-30 flex items-center gap-3 rounded-2xl px-4 py-2 text-xs"
+                    className="aos-glass-rail absolute top-4 z-30 flex flex-wrap items-center gap-2.5 rounded-2xl px-3.5 py-2 text-xs"
                   >
-                    <span className="flex items-center gap-1.5 font-semibold text-[var(--primary)]">
-                      <Brush size={14} />
-                      局部精修涂抹模式
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[var(--muted-foreground)]">画笔</span>
+                    <div className="flex items-center gap-1 rounded-xl bg-[var(--surface-2)]/80 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setMaskTool('brush')}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-lg px-2 py-1 font-semibold transition-all',
+                          maskTool === 'brush'
+                            ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+                            : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
+                        )}
+                      >
+                        <Brush size={12} />
+                        画笔
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMaskTool('eraser')}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-lg px-2 py-1 font-semibold transition-all',
+                          maskTool === 'eraser'
+                            ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+                            : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
+                        )}
+                      >
+                        <Eraser size={12} />
+                        橡皮
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[var(--muted-foreground)]">大小</span>
                       <input
                         type="range"
                         min={10}
@@ -1347,11 +1174,24 @@ const CreativeCanvasInner: React.FC = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={clearMask}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+                      onClick={() => setUndoMaskSignal((n) => n + 1)}
+                      className="rounded-lg px-2 py-1 font-medium text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
                     >
-                      <Eraser size={13} />
-                      清空选区
+                      撤销一笔
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClearMaskSignal((n) => n + 1)}
+                      className="rounded-lg px-2 py-1 font-medium text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+                    >
+                      清空
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportMask}
+                      className="rounded-lg bg-[var(--primary)]/12 px-2 py-1 font-semibold text-[var(--primary)] hover:bg-[var(--primary)]/20"
+                    >
+                      导出蒙版
                     </button>
                     <button
                       type="button"
@@ -1373,31 +1213,28 @@ const CreativeCanvasInner: React.FC = () => {
                   className="relative max-h-[66vh] max-w-[78%] overflow-hidden rounded-2xl shadow-[0_28px_70px_-16px_rgba(15,23,42,0.35)] ring-1 ring-white/25"
                 >
                   <img
+                    ref={focusImgRef}
                     src={activeArtworkData.dataUrl}
                     alt={activeArtworkData.title}
                     draggable={false}
+                    onLoad={(e) => {
+                      const img = e.currentTarget;
+                      setFocusImgSize({ w: img.clientWidth, h: img.clientHeight });
+                    }}
                     className="block max-h-[66vh] w-auto object-contain"
                   />
 
                   {inpaintMode && (
-                    <canvas
-                      ref={maskCanvasRef}
-                      width={800}
-                      height={1000}
-                      onPointerDown={(e) => {
-                        drawingRef.current = true;
-                        paintAt(e);
+                    <InpaintMaskStage
+                      width={focusImgSize.w}
+                      height={focusImgSize.h}
+                      tool={maskTool}
+                      brushSize={brushSize}
+                      clearSignal={clearMaskSignal}
+                      undoSignal={undoMaskSignal}
+                      onExportReady={(fn) => {
+                        maskExporterRef.current = fn;
                       }}
-                      onPointerMove={(e) => {
-                        if (drawingRef.current) paintAt(e);
-                      }}
-                      onPointerUp={() => {
-                        drawingRef.current = false;
-                      }}
-                      onPointerLeave={() => {
-                        drawingRef.current = false;
-                      }}
-                      className="absolute inset-0 h-full w-full cursor-crosshair"
                     />
                   )}
 
@@ -1407,7 +1244,7 @@ const CreativeCanvasInner: React.FC = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/55 text-white backdrop-blur-md"
+                        className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-slate-950/55 text-white backdrop-blur-md"
                       >
                         <Loader2 size={28} className="animate-spin text-indigo-300" />
                         <span className="text-xs font-semibold tracking-wide">正在渲染高精画面...</span>
@@ -1466,7 +1303,7 @@ const CreativeCanvasInner: React.FC = () => {
                   <div className="mx-0.5 h-5 w-px bg-[var(--border-subtle)]" />
                   <button
                     type="button"
-                    onClick={handleToggleLike}
+                    onClick={() => toggleLike(activeNode.id)}
                     className={cn(
                       'flex h-8 w-8 items-center justify-center rounded-xl transition-all hover:bg-[var(--surface-2)]',
                       activeArtworkData.liked ? 'text-rose-500' : 'text-[var(--muted-foreground)]',
@@ -1536,7 +1373,6 @@ const CreativeCanvasInner: React.FC = () => {
       {/* 3) Right Inspector Control Panel */}
       <aside className="aos-glass-rail relative z-20 m-3 ml-0 flex w-[332px] shrink-0 flex-col overflow-hidden rounded-3xl">
         <div className="flex-1 space-y-5 overflow-y-auto p-4">
-          {/* Prompt Box */}
           <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/55 p-3">
             <textarea
               value={prompt}
@@ -1651,7 +1487,6 @@ const CreativeCanvasInner: React.FC = () => {
             </div>
           </section>
 
-          {/* Model Selection */}
           <section>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold text-[var(--foreground)]">模型</span>
@@ -1678,7 +1513,6 @@ const CreativeCanvasInner: React.FC = () => {
             </select>
           </section>
 
-          {/* Aspect Ratio */}
           <section>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold text-[var(--foreground)]">画幅比例</span>
@@ -1715,7 +1549,6 @@ const CreativeCanvasInner: React.FC = () => {
             </div>
           </section>
 
-          {/* Resolution Tier */}
           <section>
             <span className="mb-2 block text-xs font-semibold text-[var(--foreground)]">清晰度档位</span>
             <div className="grid grid-cols-3 gap-1 rounded-xl bg-[var(--surface-2)]/80 p-1">
@@ -1737,7 +1570,6 @@ const CreativeCanvasInner: React.FC = () => {
             </div>
           </section>
 
-          {/* Detail Quality + Batch Count */}
           <section className="grid grid-cols-2 gap-3">
             <div>
               <span className="mb-2 block text-xs font-semibold text-[var(--foreground)]">细节档次</span>
@@ -1788,7 +1620,6 @@ const CreativeCanvasInner: React.FC = () => {
             </div>
           </section>
 
-          {/* Current Artwork Specs */}
           {activeArtworkData && (
             <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/45 p-3">
               <div className="mb-2.5 flex items-center justify-between">
@@ -1828,7 +1659,6 @@ const CreativeCanvasInner: React.FC = () => {
           )}
         </div>
 
-        {/* Sticky Primary Generate CTA */}
         <div className="border-t border-[var(--border-subtle)] bg-[var(--surface-1)]/60 p-3.5 backdrop-blur-xl">
           <button
             type="button"
