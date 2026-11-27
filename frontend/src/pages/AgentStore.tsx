@@ -126,7 +126,7 @@ export const AgentStore = () => {
                 AI 智能体广场
               </h1>
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)] sm:text-sm">
-                智能体 ≠ 一个小工具，而是「LLM + 上下文 + 工具」：能记住上下文、会调用工具帮你完成任务。选一个直接用，或自己做一个
+                智能体不是简单的小工具，它能理解你的意图、记住上下文，还能调用工具帮你把事办成。选一个直接用，或自己做一个
               </p>
             </div>
           </div>

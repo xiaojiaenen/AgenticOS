@@ -29,9 +29,8 @@ import {
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Logo } from '../Logo';
 import { ADMIN_NAV_GROUPS } from '../../config/adminNav';
-import { usePermission } from '../../hooks/usePermission';
 import { cn } from '../../lib/utils';
-import { canEnterAdmin, getStoredUser } from '@/services/authTokenStore';
+import { canEnterAdmin, getStoredUser, hasCapability } from '@/services/authTokenStore';
 import { useChatStore } from '../../stores/chatStore';
 import { listSessions, deleteSession as deleteSessionApi } from '../../services/agentService';
 import type { Session } from '../../types';
@@ -100,7 +99,6 @@ export const AppShell: React.FC = () => {
   const [activePanel, setActivePanel] = useState<SidebarPanel>(() =>
     location.pathname.startsWith('/chat') ? 'chats' : location.pathname.startsWith('/admin') ? 'admin' : 'nav',
   );
-  const { can: canPerm } = usePermission();
   const [expandedAdminGroups, setExpandedAdminGroups] = useState<string[]>([]);
   const [chatSearch, setChatSearch] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -512,7 +510,8 @@ export const AppShell: React.FC = () => {
               </div>
               <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-0.5">
                 {ADMIN_NAV_GROUPS.map((group) => {
-                  const allowed = group.items.filter((it) => canPerm(it.cap));
+                  // 与后台功能卡片保持一致：两边都按 capability 过滤，只显示当前账户有权限的项
+                  const allowed = group.items.filter((it) => hasCapability(it.cap));
                   if (allowed.length === 0) return null;
                   const expanded = expandedAdminGroups.includes(group.key);
                   const GroupIcon = group.icon;

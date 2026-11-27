@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { ChartSkeleton } from '../components/ui/ChartSkeleton';
 import { cn } from '../lib/utils';
+import { hasCapability } from '../services/authTokenStore';
 import { getDashboardStats, getUsageRoutes } from '../services/dashboardService';
 import { getStoredUser } from '@/services/authTokenStore';
 
@@ -493,7 +494,7 @@ export const AdminDashboard = () => {
         ) : (
           /* 分组模块卡片网格（对话与内容 / 智能体与能力 / 组织与系统） */
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {ADMIN_GROUPS[activeGroup].map((m) => (
+            {ADMIN_GROUPS[activeGroup].filter((m) => hasCapability(m.cap)).map((m) => (
               <button
                 key={m.tab}
                 type="button"
