@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.core.roles import is_admin_like
 from app.api.deps import (
     filter_readable_kb_ids, get_current_user, get_db,
-    require_kb_access, require_perm,
+    require_any_perm, require_kb_access, require_perm,
 )
 from app.db.models import (
     UserModel,
@@ -252,9 +252,9 @@ def create_knowledge_base(
     request: KnowledgeBaseCreate,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_perm("kb:create")),
+    current_user: UserModel = Depends(require_any_perm("kb:create_own", "kb:create")),
 ):
-    """创建知识库（需 kb:create 权限点；矩阵可配置，创建者自动获得读写删授权）"""
+    """创建知识库（用户有 kb:create_own 即可建自己的库；创建者自动获得读写删授权）"""
     # 生成 slug
     slug = request.slug or request.name.lower().replace(" ", "-")
     slug = "".join(c for c in slug if c.isalnum() or c == "-")[:200]

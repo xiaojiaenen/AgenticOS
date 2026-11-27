@@ -44,7 +44,8 @@ CAP_CONVERSATION_OWN = "conversation:own"         # 自己的会话（始终有�
 CAP_CONVERSATION_READ_ANY = "conversation:read_any"   # 读他人会话正文（仅 superadmin）
 
 CAP_AGENT_MANAGE = "agent:manage"                 # 建/改/删智能体与技能
-CAP_KNOWLEDGE_MANAGE = "knowledge:manage"         # 知识库管理
+CAP_KNOWLEDGE_OWN = "knowledge:own"               # 自己的知识库（创建/上传/管理自己建的库）
+CAP_KNOWLEDGE_MANAGE = "knowledge:manage"         # 知识库管理（平台级）
 CAP_ANNOUNCEMENT_MANAGE = "announcement:manage"   # 公告管理
 CAP_GALLERY_MANAGE = "gallery:manage"             # 作品库审核/下架
 # workflow 引擎已整体下线（2026-11-20），CAP_WORKFLOW_MANAGE 已移除。
@@ -60,6 +61,7 @@ CAP_DANGEROUS = "system:dangerous"                # 高危：清理数据、重�
 BASE_USER_CAPS: frozenset[str] = frozenset({
     CAP_AGENT_USE,
     CAP_CONVERSATION_OWN,
+    CAP_KNOWLEDGE_OWN,  # 用户可建自己的知识库并上传资料（仅自己的库）
 })
 
 # 只读审计能看到的东西

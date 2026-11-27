@@ -51,7 +51,7 @@ export function getAgentIcon(avatar?: string | null): { Icon: IconComp; tone: st
 /** 智能体图标组件。 */
 export const AgentIcon: React.FC<{
   avatar?: string | null;
-  size?: number | string;
+  size?: number;
   className?: string;
 }> = ({ avatar, size = 16, className }) => {
   const { Icon } = getAgentIcon(avatar);

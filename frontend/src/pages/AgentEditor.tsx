@@ -8,10 +8,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { getKnowledgeBases, createKnowledgeBase, uploadDocument, type KnowledgeBase } from '../services/knowledgeService';
 import {
-  ArrowLeft, BookOpen, Bot, Check, Library, Loader2,
+  ArrowLeft, BookOpen, Bot, Check, Library, Loader2, Plus,
   Plug, Save, ShieldAlert, Trash2, Wand2, Wrench,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { toastError } from '../lib/errors';
 import { Button } from '../components/shadcn/button';
 import { Input } from '../components/shadcn/input';
 import { Badge } from '../components/ui/Badge';
@@ -104,6 +107,13 @@ export const AgentEditor: React.FC = () => {
   );
   const [avatar, setAvatar] = useState('sparkles');
   const [iconSearch, setIconSearch] = useState('');
+  // 知识库白名单（空=不限制）；列表由 GET /knowledge/bases 按当前用户可见性过滤
+  const [selectedKbIds, setSelectedKbIds] = useState<number[]>([]);
+  const [kbList, setKbList] = useState<KnowledgeBase[]>([]);
+  const [kbLoading, setKbLoading] = useState(false);
+  const [kbSearch, setKbSearch] = useState('');
+  const [newKbName, setNewKbName] = useState('');
+  const [uploadingKbId, setUploadingKbId] = useState<number | null>(null);
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   // 是否上架到智能体商店（= 其他人在商店里看得到这个智能体）。
   // 与 audienceMode 是两个概念：listed 决定「商店里有没有」，audience 决定
@@ -182,6 +192,7 @@ export const AgentEditor: React.FC = () => {
       approvalTools,
       grantedMcpServers,
       selectedSkills,
+      selectedKbIds,
     });
   const dirty = currentSnapshot() !== initialSnapshotRef.current;
 
@@ -192,6 +203,17 @@ export const AgentEditor: React.FC = () => {
     },
     [],
   );
+
+  // 加载当前用户可见的知识库（自己的 + 公开/授权的）
+  useEffect(() => {
+    let alive = true;
+    setKbLoading(true);
+    getKnowledgeBases()
+      .then((list) => { if (alive) setKbList(Array.isArray(list) ? list : []); })
+      .catch(() => { if (alive) setKbList([]); })
+      .finally(() => { if (alive) setKbLoading(false); });
+    return () => { alive = false; };
+  }, []);
 
   // 加载完成（或新建页首次就绪）后记录基线快照；此前不算"已修改"
   useEffect(() => {
@@ -297,6 +319,7 @@ export const AgentEditor: React.FC = () => {
     setEnabledTools(tools);
     setApprovalTools(approvals);
     setSelectedSkills((profile.skills ?? []).filter((s) => s.enabled).map((s) => s.id));
+    setSelectedKbIds(profile.knowledge_base_ids ?? []);
   };
 
   // 切换模式不做隐式工具推荐：工具配置始终由用户显式勾选，避免"看不见的默认值"
@@ -370,6 +393,8 @@ export const AgentEditor: React.FC = () => {
         max_steps: parsedMaxSteps,
         tools: buildToolsPayload(),
         skill_ids: selectedSkills,
+        // 空数组 = 不限制（可检索所有有权限的知识库）
+        knowledge_base_ids: selectedKbIds,
       };
       const saved = isEditing
         ? await updateAgentProfile(editingId, payload)
@@ -780,17 +805,102 @@ export const AgentEditor: React.FC = () => {
           </section>
         )}
 
-        {/* 知识库 / MCP：说明当前可用范围，避免误解 */}
-        {(tab === 'knowledge' || tab === 'mcp') && (
+        {/* MCP：说明当前可用范围 */}
+        {tab === 'mcp' && (
           <section className="admin-card p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              {tab === 'knowledge' ? '知识库' : 'MCP'}
-            </h2>
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">MCP</h2>
             <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
-              {tab === 'knowledge'
-                ? '启用「知识库检索」工具后，智能体即可在回答时检索已建知识库中的文档。知识库本身在「管理后台 → 知识库」中维护，此处只需确保工具已勾选。'
-                : 'MCP 工具在「管理后台 → 集成管理」里给智能体授权服务器后自动可用（形如 mcp__服务器__工具），不在此清单勾选。'}
+              MCP 工具在「管理后台 → 集成管理」里给智能体授权服务器后自动可用（形如 mcp__服务器__工具），不在此清单勾选。
             </p>
+          </section>
+        )}
+
+        {/* 知识库：绑定用户自己的 + 公开的知识库；可创建库、上传文档 */}
+        {tab === 'knowledge' && (
+          <section className="admin-card p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">知识库</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
+              勾选后，该智能体回答时只检索这些知识库。不勾任何一项 = 不限制，可检索你有权限的全部知识库。
+              需先在「工具」页启用「知识库检索」工具。
+            </p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <input
+                type="search"
+                value={kbSearch}
+                onChange={(e) => setKbSearch(e.target.value)}
+                placeholder="搜索知识库…"
+                className="min-w-40 flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 py-1.5 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--border-strong)]"
+              />
+              <button
+                type="button"
+                onClick={() => void (async () => {
+                  const name = newKbName.trim() || `我的知识库 ${Date.now().toString().slice(-6)}`;
+                  try {
+                    const kb = await createKnowledgeBase({ name, scope: 'personal', visibility: 'public' });
+                    setKbList((prev) => [kb, ...prev]);
+                    setSelectedKbIds((prev) => [...prev, kb.id]);
+                    setNewKbName('');
+                    toast.success('知识库已创建并绑定');
+                  } catch (err) { toast.error(toastError(err, '创建知识库失败')); }
+                })()}
+                className="aos-pill-btn !text-xs"
+              >
+                <Plus size={13} /> 新建知识库
+              </button>
+            </div>
+            <input
+              value={newKbName}
+              onChange={(e) => setNewKbName(e.target.value)}
+              placeholder="新库名称（留空自动生成）"
+              className="mt-2 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 py-1.5 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+            />
+
+            <div className="mt-3 flex flex-col gap-1.5">
+              {kbLoading && <p className="text-xs text-[var(--muted-foreground)]">加载知识库…</p>}
+              {!kbLoading && kbList.filter((kb) => !kbSearch.trim() || (kb.name || '').includes(kbSearch.trim())).length === 0 && (
+                <p className="text-xs text-[var(--muted-foreground)]">没有可见的知识库，先新建一个吧</p>
+              )}
+              {kbList
+                .filter((kb) => !kbSearch.trim() || (kb.name || '').includes(kbSearch.trim()))
+                .map((kb) => {
+                  const checked = selectedKbIds.includes(kb.id);
+                  return (
+                    <div key={kb.id} className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setSelectedKbIds((prev) => checked ? prev.filter((id) => id !== kb.id) : [...prev, kb.id])}
+                        className="size-4 shrink-0 accent-[var(--primary)]"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-[var(--foreground)]">{kb.name}</p>
+                        <p className="text-[10.5px] text-[var(--muted-foreground)]">
+                          {kb.visibility === 'public' ? '公开' : kb.visibility === 'restricted' ? '受限' : '私有'} · {kb.scope === 'personal' ? '个人' : '组织'} · {kb.document_count ?? 0} 文档
+                        </p>
+                      </div>
+                      <label className="cursor-pointer rounded-lg border border-[var(--border-subtle)] px-2 py-1 text-[10.5px] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]">
+                        {uploadingKbId === kb.id ? '上传中…' : '上传文档'}
+                        <input
+                          type="file"
+                          accept=".pdf,.docx,.md,.markdown,.html,.htm,.txt"
+                          className="hidden"
+                          onChange={(e) => void (async () => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingKbId(kb.id);
+                            try {
+                              await uploadDocument(kb.id, file);
+                              toast.success('文档已上传，正在后台编译');
+                            } catch (err) { toast.error(toastError(err, '上传失败')); }
+                            finally { setUploadingKbId(null); e.target.value = ''; }
+                          })()}
+                        />
+                      </label>
+                    </div>
+                  );
+                })}
+            </div>
           </section>
         )}
 

@@ -138,6 +138,23 @@ def require_perm(permission: str):
     return dependency
 
 
+def require_any_perm(*permissions: str):
+    """拥有任一权限点即放行（如「建自己的库 or 平台级建库」）。"""
+    def dependency(
+        user: UserModel = Depends(get_current_user),
+        db=Depends(get_db),
+    ) -> UserModel:
+        from app.services.permission_checker import has_permission
+
+        if not any(has_permission(db, user, p) for p in permissions):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"缺少权限：{' / '.join(permissions)}",
+            )
+        return user
+    return dependency
+
+
 def client_capabilities(user: UserModel) -> dict[str, object]:
     """前端要的「我能做什么」摘要（随 /auth/me 下发）。
 

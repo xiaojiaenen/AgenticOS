@@ -54,6 +54,8 @@ export type AgentProfile = {
   audience_users: AgentProfileAudienceUser[];
   tools: AgentProfileTool[];
   skills: AgentProfileSkill[];
+  /** 已绑定的知识库 id 白名单（空=不限制） */
+  knowledge_base_ids?: number[];
   external_systems?: { system_id: number; system_name: string; enabled: boolean }[];
   max_steps?: number | null;
   created_at: string;
@@ -80,6 +82,8 @@ export type AgentProfilePayload = {
   audience_user_ids?: number[];
   tools: AgentProfileTool[];
   skill_ids: number[];
+  /** 知识库白名单：空数组 = 不限制（可检索所有有权限的库） */
+  knowledge_base_ids?: number[];
   external_systems?: { system_id: number; enabled: boolean }[];
   max_steps?: number | null;
   visibility?: 'private' | 'public';

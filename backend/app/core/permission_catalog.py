@@ -29,7 +29,7 @@ from typing import Iterable
 from app.core.roles import (
     CAP_AGENT_MANAGE, CAP_AGENT_USE, CAP_ANNOUNCEMENT_MANAGE, CAP_APIKEY_MANAGE,
     CAP_APPROVAL_REVIEW, CAP_AUDIT_VIEW, CAP_CONVERSATION_OWN, CAP_CONVERSATION_READ_ANY,
-    CAP_DANGEROUS, CAP_GALLERY_MANAGE, CAP_KNOWLEDGE_MANAGE, CAP_PROVIDER_MANAGE,
+    CAP_DANGEROUS, CAP_GALLERY_MANAGE, CAP_KNOWLEDGE_MANAGE, CAP_KNOWLEDGE_OWN, CAP_PROVIDER_MANAGE,
     CAP_SYSTEM_SETTINGS, CAP_USER_MANAGE, capabilities_for,
 )
 
@@ -83,7 +83,11 @@ PERMISSION_POINTS: tuple[PermissionPoint, ...] = (
     _p("skill:delete", CAP_AGENT_MANAGE, "删除 Skill"),
     _p("tool:configure", CAP_AGENT_MANAGE, "配置工具与审批策略"),
 
-    # 知识库
+    # 知识库（用户自有库：仅能建/传自己建的库，不获得跨库写权限）
+    _p("kb:create_own", CAP_KNOWLEDGE_OWN, "创建自己的知识库"),
+    _p("kb:upload_own", CAP_KNOWLEDGE_OWN, "上传文档到自己的知识库"),
+
+    # 知识库（平台级）
     _p("kb:create", CAP_KNOWLEDGE_MANAGE, "创建知识库"),
     _p("kb:edit", CAP_KNOWLEDGE_MANAGE, "编辑知识库"),
     _p("kb:delete", CAP_KNOWLEDGE_MANAGE, "删除知识库"),
@@ -127,7 +131,8 @@ GROUPS: tuple[dict[str, str], ...] = (
     {"key": CAP_CONVERSATION_OWN, "label": "会话与产物"},
     {"key": CAP_AUDIT_VIEW, "label": "审计与统计"},
     {"key": CAP_AGENT_MANAGE, "label": "智能体与能力"},
-    {"key": CAP_KNOWLEDGE_MANAGE, "label": "知识库"},
+    {"key": CAP_KNOWLEDGE_OWN, "label": "我的知识库"},
+    {"key": CAP_KNOWLEDGE_MANAGE, "label": "知识库管理"},
     {"key": CAP_ANNOUNCEMENT_MANAGE, "label": "公告"},
     {"key": CAP_GALLERY_MANAGE, "label": "作品库"},
     {"key": CAP_APPROVAL_REVIEW, "label": "审批"},
