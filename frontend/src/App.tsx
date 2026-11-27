@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -163,6 +163,10 @@ function AppContent() {
 }
 
 function App() {
+  // ForesightJS：初始化意图预测（仅预取 chunk，无副作用）
+  useEffect(() => {
+    void import('./lib/foresight').then((m) => m.initForesight());
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <Router>

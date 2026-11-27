@@ -4,17 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   Bot,
-  Globe,
   Loader2,
-  Mail,
   Plus,
-  Presentation,
   RefreshCw,
   Search,
   SearchX,
-  Sparkles,
-  Table2,
 } from 'lucide-react';
+// 场景智能体徽章用 kubai 插画风图标（带 hover 微动效），其余工具图标仍用 lucide
+import {
+  Presentation as KubaiPresentation,
+  Globe as KubaiGlobe,
+  Table as KubaiTable,
+  Mail as KubaiMail,
+  Sparkles as KubaiSparkles,
+} from 'kubai-icons-react';
 import { EmptyState } from '../components/ui/EmptyState';
 import { CardSkeleton } from '../components/ui/Skeletons';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
@@ -28,13 +31,13 @@ function getAgentBadgeVisual(mode?: string, slug?: string): {
   roleTag: string;
 } {
   const key = (mode || slug || 'general').toLowerCase();
-  if (key.includes('ppt')) return { tone: 'aos-tone-amber', Icon: Presentation, roleTag: 'ppt' };
-  if (key.includes('web')) return { tone: 'aos-tone-sky', Icon: Globe, roleTag: 'website' };
+  if (key.includes('ppt')) return { tone: 'aos-tone-amber', Icon: KubaiPresentation, roleTag: 'ppt' };
+  if (key.includes('web')) return { tone: 'aos-tone-sky', Icon: KubaiGlobe, roleTag: 'website' };
   if (key.includes('office') || key.includes('sheet') || key.includes('data')) {
-    return { tone: 'aos-tone-emerald', Icon: Table2, roleTag: 'office' };
+    return { tone: 'aos-tone-emerald', Icon: KubaiTable, roleTag: 'office' };
   }
-  if (key.includes('mail')) return { tone: 'aos-tone-violet', Icon: Mail, roleTag: 'email' };
-  return { tone: 'aos-tone-slate', Icon: Sparkles, roleTag: mode || 'general' };
+  if (key.includes('mail')) return { tone: 'aos-tone-violet', Icon: KubaiMail, roleTag: 'email' };
+  return { tone: 'aos-tone-slate', Icon: KubaiSparkles, roleTag: mode || 'general' };
 }
 
 export const AgentStore = () => {

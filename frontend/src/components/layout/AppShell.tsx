@@ -29,10 +29,12 @@ import {
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Logo } from '../Logo';
 import { ADMIN_NAV_GROUPS } from '../../config/adminNav';
+import { useForesight } from '@foresightjs/react';
+import { prefetchRoute } from '../../lib/foresight';
 import { cn } from '../../lib/utils';
 import { canEnterAdmin, getStoredUser, hasCapability } from '@/services/authTokenStore';
 import { useChatStore } from '../../stores/chatStore';
-import { listSessions, deleteSession as deleteSessionApi } from '../../services/agentService';
+import { listSessions, deleteSession as deleteSessionApi, getSessionMessages } from '../../services/agentService';
 import type { Session } from '../../types';
 
 type SidebarPanel = 'nav' | 'chats' | 'admin';
@@ -53,6 +55,73 @@ const PRIMARY_NAV: NavItem[] = [
   { key: 'agents', label: 'AI 智能体', path: '/agents', badge: '5', icon: Bot, match: (p) => p.startsWith('/agents') },
   { key: 'canvas', label: '创作画布', path: '/canvas', icon: Palette, match: (p) => p.startsWith('/canvas') },
 ];
+
+/** 最近会话按钮：Foresight 预测到用户将点击时，预热该会话消息（幂等读取）。 */
+const PrefetchSessionButton: React.FC<{
+  sessionId: string;
+  title: string;
+  isCurrent: boolean;
+  icon: React.ReactNode;
+  onClick: () => void;
+}> = ({ sessionId, title, isCurrent, icon, onClick }) => {
+  const { elementRef } = useForesight<HTMLButtonElement>({
+    name: `session:${sessionId}`,
+    callback: () => {
+      if (isCurrent) return;
+      // 仅预热服务端/浏览器缓存，不写任何状态；结果丢弃，失败静默
+      void getSessionMessages(sessionId).catch(() => undefined);
+    },
+  });
+  return (
+    <button
+      ref={elementRef}
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'aos-nav-item !items-start !py-2 !text-[12.5px]',
+        isCurrent && 'bg-[var(--surface-2)] text-[var(--foreground)] font-semibold',
+      )}
+    >
+      {icon}
+      <span className="line-clamp-2 flex-1 leading-snug">{title || '未命名对话'}</span>
+    </button>
+  );
+};
+
+/** 主导航按钮：Foresight 预测到用户将点击时，提前预取对应路由 chunk。 */
+const PrefetchNavButton: React.FC<{
+  path: string;
+  label: string;
+  badge?: string;
+  Icon: React.ComponentType<{ size?: number; className?: string }>;
+  active: boolean;
+  onClick: () => void;
+}> = ({ path, label, badge, Icon, active, onClick }) => {
+  const { elementRef } = useForesight<HTMLButtonElement>({
+    name: `nav:${path}`,
+    callback: () => prefetchRoute(path),
+  });
+  return (
+    <button
+      ref={elementRef}
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      className={cn('aos-nav-item justify-between', active && 'active')}
+    >
+      <span className="flex items-center gap-2.5 truncate">
+        <Icon size={16} className="shrink-0" />
+        <span className="truncate">{label}</span>
+      </span>
+      {badge && (
+        <span className="aos-nav-badge rounded-full px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+};
 
 /** 会话图标：优先按智能体 slug，其次按 mode（内置智能体与 mode 一一对应）。 */
 function getSessionTone(slugOrMode?: string): {
@@ -308,33 +377,21 @@ export const AppShell: React.FC = () => {
             {/* 面板 1：主导航 + 分割线 + 最近会话（1:1 复刻原型截图左侧栏） */}
             <div className="flex h-full w-1/3 shrink-0 flex-col gap-3 overflow-hidden pr-0.5">
               <nav className="flex shrink-0 flex-col gap-1" aria-label="主导航">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = item.match(location.pathname);
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => {
-                        // 点主导航任何项都滑回对应面板，避免停留在后台面板回不来
-                        setActivePanel(item.key === 'chat' ? 'chats' : 'nav');
-                        navigate(item.path);
-                      }}
-                      aria-current={active ? 'page' : undefined}
-                      className={cn('aos-nav-item justify-between', active && 'active')}
-                    >
-                      <span className="flex items-center gap-2.5 truncate">
-                        <Icon size={16} className="shrink-0" />
-                        <span className="truncate">{item.label}</span>
-                      </span>
-                      {item.badge && (
-                        <span className="aos-nav-badge rounded-full px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums">
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                {navItems.map((item) => (
+                  <PrefetchNavButton
+                    key={item.key}
+                    path={item.path}
+                    label={item.label}
+                    badge={item.badge}
+                    Icon={item.icon}
+                    active={item.match(location.pathname)}
+                    onClick={() => {
+                      // 点主导航任何项都滑回对应面板，避免停留在后台面板回不来
+                      setActivePanel(item.key === 'chat' ? 'chats' : 'nav');
+                      navigate(item.path);
+                    }}
+                  />
+                ))}
               </nav>
 
               <div className="h-px w-full bg-[var(--border-subtle)]" />
@@ -360,21 +417,18 @@ export const AppShell: React.FC = () => {
                     const isCurrent =
                       location.pathname.startsWith('/chat') && currentSessionId === session.id;
                     return (
-                      <button
+                      <PrefetchSessionButton
                         key={session.id}
-                        type="button"
-                        onClick={() => handleSelectSession(session.id)}
+                        sessionId={session.id}
                         title={session.title || '未命名对话'}
-                        className={cn(
-                          'aos-nav-item !items-start !py-2 !text-[12.5px]',
-                          isCurrent && 'bg-[var(--surface-2)] text-[var(--foreground)] font-semibold',
-                        )}
-                      >
-                        <span className={cn('aos-icon-badge mt-0.5 h-6 w-6 shrink-0 !rounded-lg', toneClass)}>
-                          <ModeIcon size={13} />
-                        </span>
-                        <span className="line-clamp-2 flex-1 leading-snug">{session.title || '未命名对话'}</span>
-                      </button>
+                        isCurrent={isCurrent}
+                        onClick={() => handleSelectSession(session.id)}
+                        icon={
+                          <span className={cn('aos-icon-badge mt-0.5 h-6 w-6 shrink-0 !rounded-lg', toneClass)}>
+                            <ModeIcon size={13} />
+                          </span>
+                        }
+                      />
                     );
                   })
                 ) : (

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Package } from 'kubai-icons-react';
 import { cn } from '../../lib/utils';
 
 export interface EmptyStateAction {
@@ -89,7 +90,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
             compact ? 'size-9' : 'size-12',
           )}
         >
-          {icon ?? <EmptyBoxGlyph className={compact ? 'size-4' : 'size-5'} />}
+          {icon ?? <Package size={compact ? 20 : 28} className="text-[var(--primary)]" trigger="parent" />}
         </div>
       </div>
 
@@ -122,23 +123,3 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     </div>
   );
 };
-
-/** 默认图标：一个「空盒子」，避免依赖某个具体图标库的表达。 */
-function EmptyBoxGlyph({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M3 8.5 12 4l9 4.5v7L12 20l-9-4.5v-7Z" />
-      <path d="M3 8.5 12 13l9-4.5" />
-      <path d="M12 13v7" />
-    </svg>
-  );
-}
