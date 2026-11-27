@@ -10,34 +10,28 @@ import {
   Search,
   SearchX,
 } from 'lucide-react';
-// 场景智能体徽章用 kubai 插画风图标（带 hover 微动效），其余工具图标仍用 lucide
-import {
-  Presentation as KubaiPresentation,
-  Globe as KubaiGlobe,
-  Table as KubaiTable,
-  Mail as KubaiMail,
-  Sparkles as KubaiSparkles,
-} from 'kubai-icons-react';
 import { EmptyState } from '../components/ui/EmptyState';
+import { getAgentIcon } from '../components/ui/AgentIcon';
 import { CardSkeleton } from '../components/ui/Skeletons';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { toastError } from '../lib/errors';
 
-function getAgentBadgeVisual(mode?: string, slug?: string): {
+function getAgentBadgeVisual(avatar?: string | null, mode?: string, slug?: string): {
   tone: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
   roleTag: string;
 } {
-  const key = (mode || slug || 'general').toLowerCase();
-  if (key.includes('ppt')) return { tone: 'aos-tone-amber', Icon: KubaiPresentation, roleTag: 'ppt' };
-  if (key.includes('web')) return { tone: 'aos-tone-sky', Icon: KubaiGlobe, roleTag: 'website' };
-  if (key.includes('office') || key.includes('sheet') || key.includes('data')) {
-    return { tone: 'aos-tone-emerald', Icon: KubaiTable, roleTag: 'office' };
-  }
-  if (key.includes('mail')) return { tone: 'aos-tone-violet', Icon: KubaiMail, roleTag: 'email' };
-  return { tone: 'aos-tone-slate', Icon: KubaiSparkles, roleTag: mode || 'general' };
+  // 全站统一按 avatar 取图标；avatar 为空时按 slug/mode 兜底成内置 avatar key
+  const key = (avatar || slug || mode || 'general').toLowerCase();
+  const mapped = key.includes('ppt') ? 'presentation'
+    : key.includes('web') ? 'globe'
+    : key.includes('office') || key.includes('sheet') ? 'table'
+    : key.includes('mail') ? 'mail'
+    : key.includes('data') ? 'database' : key;
+  const { Icon, tone } = getAgentIcon(mapped);
+  return { tone, Icon, roleTag: mode || 'general' };
 }
 
 export const AgentStore = () => {
@@ -203,7 +197,7 @@ export const AgentStore = () => {
           /* 原型同款 3 列卡片网格 */
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredAgents.map((agent) => {
-              const { tone, Icon, roleTag } = getAgentBadgeVisual(agent.response_mode, agent.slug);
+              const { tone, Icon, roleTag } = getAgentBadgeVisual(agent.avatar, agent.response_mode, agent.slug);
               const canUse = agent.installed || agent.is_builtin;
               return (
                 <article

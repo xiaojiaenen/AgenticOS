@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotEmail, MascotBigData, ChevronDownIcon } from './AnimatedIcons';
+import { MascotHappy, ChevronDownIcon } from './AnimatedIcons';
 import { AgentProfile } from '../../services/agentProfileService';
+import { AgentIcon, getAgentIcon } from './AgentIcon';
 
 /**
  * 不同模式的小精灵组件和颜色。
@@ -11,16 +12,17 @@ import { AgentProfile } from '../../services/agentProfileService';
  * 但每个色都配了 dark: 变体 —— 浅色下用深色文字，深色下换成亮色文字，
  * 否则暗色主题下「天蓝底 + 天蓝字」会糊成一团。
  */
-const MODE_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?: string }>; bg: string; ring: string; text: string; selectedBg: string }> = {
-  general: { Mascot: MascotGeneral, bg: 'bg-sky-500',    ring: 'ring-sky-200 dark:ring-sky-500/40',    text: 'text-sky-700 dark:text-sky-300',    selectedBg: 'bg-sky-100/70 dark:bg-sky-500/20' },
-  ppt:     { Mascot: MascotPPT,     bg: 'bg-violet-500',  ring: 'ring-violet-200 dark:ring-violet-500/40',text: 'text-violet-700 dark:text-violet-300',selectedBg: 'bg-violet-100/70 dark:bg-violet-500/20' },
-  website: { Mascot: MascotWebsite, bg: 'bg-emerald-500', ring: 'ring-emerald-200 dark:ring-emerald-500/40',text: 'text-emerald-700 dark:text-emerald-300',selectedBg: 'bg-emerald-100/70 dark:bg-emerald-500/20' },
-  email:   { Mascot: MascotEmail,   bg: 'bg-blue-500',    ring: 'ring-blue-200 dark:ring-blue-500/40',  text: 'text-blue-700 dark:text-blue-300',  selectedBg: 'bg-blue-100/70 dark:bg-blue-500/20' },
-  bigdata: { Mascot: MascotBigData, bg: 'bg-orange-500',  ring: 'ring-orange-200 dark:ring-orange-500/40',text: 'text-orange-700 dark:text-orange-300',selectedBg: 'bg-orange-100/70 dark:bg-orange-500/20' },
+const MODE_STYLES: Record<string, { bg: string; ring: string; text: string; selectedBg: string }> = {
+  amber:   { bg: 'bg-amber-500',   ring: 'ring-amber-200 dark:ring-amber-500/40',   text: 'text-amber-700 dark:text-amber-300',   selectedBg: 'bg-amber-100/70 dark:bg-amber-500/20' },
+  sky:     { bg: 'bg-sky-500',     ring: 'ring-sky-200 dark:ring-sky-500/40',       text: 'text-sky-700 dark:text-sky-300',       selectedBg: 'bg-sky-100/70 dark:bg-sky-500/20' },
+  emerald: { bg: 'bg-emerald-500', ring: 'ring-emerald-200 dark:ring-emerald-500/40',text: 'text-emerald-700 dark:text-emerald-300',selectedBg: 'bg-emerald-100/70 dark:bg-emerald-500/20' },
+  violet:  { bg: 'bg-violet-500',  ring: 'ring-violet-200 dark:ring-violet-500/40', text: 'text-violet-700 dark:text-violet-300',  selectedBg: 'bg-violet-100/70 dark:bg-violet-500/20' },
+  slate:   { bg: 'bg-slate-700',   ring: 'ring-slate-200 dark:ring-slate-500/40',   text: 'text-slate-700 dark:text-slate-300',   selectedBg: 'bg-slate-100/70 dark:bg-slate-500/20' },
 };
 
-function getModeStyle(mode?: string) {
-  return MODE_STYLES[mode || ''] || MODE_STYLES.general;
+function getModeStyle(avatar?: string | null) {
+  const tone = getAgentIcon(avatar).tone.replace('aos-tone-', '');
+  return MODE_STYLES[tone] || MODE_STYLES.violet;
 }
 
 interface AgentSelectorProps {
@@ -96,7 +98,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
     : undefined;
 
   const renderOption = (agent: AgentProfile, idx: number) => {
-    const modeStyle = getModeStyle(agent.response_mode);
+    const modeStyle = getModeStyle(agent.avatar);
     const isSelected = selectedId === agent.id;
     return (
       <button
@@ -120,7 +122,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
           'flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
           isSelected ? `${modeStyle.bg} text-white` : 'bg-[var(--surface-2)] text-[var(--muted-foreground)]',
         )}>
-          {React.createElement(modeStyle.Mascot, { size: 20 })}
+          <AgentIcon avatar={agent.avatar} size={20} />
         </span>
         <div className="min-w-0 flex flex-col">
           <span className={cn('truncate text-xs font-semibold transition-colors', isSelected ? modeStyle.text : 'text-[var(--foreground)]')}>
@@ -155,9 +157,9 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
         >
           <div className={cn(
             'flex h-5 w-5 items-center justify-center rounded-md border-2 text-[10px] font-semibold',
-            selectedId ? `${getModeStyle(selected?.response_mode).bg} border-transparent text-white` : 'border-[var(--border-strong)] text-[var(--muted-foreground)]',
+            selectedId ? `${getModeStyle(selected?.avatar).bg} border-transparent text-white` : 'border-[var(--border-strong)] text-[var(--muted-foreground)]',
           )}>
-            {(() => { const M = selected ? getModeStyle(selected.response_mode).Mascot : null; return M ? <M size={12} /> : <MascotHappy size={12} />; })()}
+            {selected ? <AgentIcon avatar={selected.avatar} size={12} /> : <MascotHappy size={12} />}
           </div>
         </button>
 
@@ -200,9 +202,9 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
       >
         <div className={cn(
           'flex h-6 w-6 items-center justify-center rounded-lg transition-all shadow-sm',
-          selectedId ? `${getModeStyle(selected?.response_mode).bg} text-white` : 'bg-[var(--surface-2)]',
+          selectedId ? `${getModeStyle(selected?.avatar).bg} text-white` : 'bg-[var(--surface-2)]',
         )}>
-          {(() => { const M = selected ? getModeStyle(selected.response_mode).Mascot : null; return M ? <M size={14} /> : <MascotHappy size={14} />; })()}
+          {selected ? <AgentIcon avatar={selected.avatar} size={14} /> : <MascotHappy size={14} />}
         </div>
         {selected?.name || '选择智能体'}
         <ChevronDownIcon size={14} className={cn('transition-transform', showMenu && 'rotate-180')} />

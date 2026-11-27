@@ -9,12 +9,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
-  ArrowLeft, BookOpen, Bot, Check, Database, Globe, Library, Loader2, Mail,
-  Plug, Presentation, Save, ShieldAlert, Sparkles, Trash2, Wand2, Wrench,
+  ArrowLeft, BookOpen, Bot, Check, Library, Loader2,
+  Plug, Save, ShieldAlert, Trash2, Wand2, Wrench,
 } from 'lucide-react';
 import { Button } from '../components/shadcn/button';
 import { Input } from '../components/shadcn/input';
 import { Badge } from '../components/ui/Badge';
+import { AGENT_ICON_CHOICES } from '../components/ui/AgentIcon';
 import { FormSkeleton } from '../components/ui/Skeletons';
 import { EmptyState } from '../components/ui/EmptyState';
 import {
@@ -85,15 +86,8 @@ const SECTION_META: {
   { key: 'mcp', label: 'MCP', hint: '能连哪些外部系统', icon: Plug },
 ];
 
-/** 图标选项：lucide 图标本身即选择器（此前用文字缩写，不可辨识） */
-const AVATAR_CHOICES = [
-  { key: 'sparkles', label: '星芒', Icon: Sparkles },
-  { key: 'presentation', label: '演示', Icon: Presentation },
-  { key: 'globe', label: '网站', Icon: Globe },
-  { key: 'mail', label: '邮件', Icon: Mail },
-  { key: 'bot', label: '机器人', Icon: Bot },
-  { key: 'database', label: '数据', Icon: Database },
-] as const;
+/** 图标选项：与全站统一（kubai 插画图标），支持搜索。 */
+const AVATAR_CHOICES = AGENT_ICON_CHOICES;
 
 export const AgentEditor: React.FC = () => {
   const navigate = useNavigate();
@@ -109,6 +103,7 @@ export const AgentEditor: React.FC = () => {
     (searchParams.get('mode') as AgentProfile['response_mode']) || 'general',
   );
   const [avatar, setAvatar] = useState('sparkles');
+  const [iconSearch, setIconSearch] = useState('');
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   // 是否上架到智能体商店（= 其他人在商店里看得到这个智能体）。
   // 与 audienceMode 是两个概念：listed 决定「商店里有没有」，audience 决定
@@ -616,24 +611,37 @@ export const AgentEditor: React.FC = () => {
 
             <div className="mb-4">
               <span className="mb-1.5 block text-sm font-medium">图标</span>
-              <div className="flex flex-wrap gap-2">
-                {AVATAR_CHOICES.map(({ key, label, Icon }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setAvatar(key)}
-                    title={label}
-                    aria-label={`图标：${label}`}
-                    className={cn(
-                      'flex h-9 w-9 items-center justify-center rounded-lg border transition-all',
-                      avatar === key
-                        ? 'border-brand-500 bg-brand-500/10 text-brand-600'
-                        : 'border-[var(--border-subtle)] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]',
-                    )}
-                  >
-                    <Icon size={16} />
-                  </button>
-                ))}
+              <input
+                type="search"
+                value={iconSearch}
+                onChange={(e) => setIconSearch(e.target.value)}
+                placeholder="搜索图标（如：网站、邮件、数据）…"
+                className="mb-2 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 py-1.5 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--border-strong)]"
+              />
+              <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto pr-1">
+                {AVATAR_CHOICES
+                  .filter(({ key, label }) => !iconSearch.trim() || label.includes(iconSearch.trim()) || key.includes(iconSearch.trim().toLowerCase()))
+                  .map(({ key, label, Icon, tone }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setAvatar(key)}
+                      title={label}
+                      aria-label={`图标：${label}`}
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-lg border transition-all',
+                        tone,
+                        avatar === key
+                          ? 'border-[var(--primary)] bg-[var(--primary)]/10 ring-2 ring-[var(--ring-halo)]'
+                          : 'border-[var(--border-subtle)] hover:bg-[var(--surface-2)]',
+                      )}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  ))}
+                {AVATAR_CHOICES.filter(({ key, label }) => !iconSearch.trim() || label.includes(iconSearch.trim()) || key.includes(iconSearch.trim().toLowerCase())).length === 0 && (
+                  <span className="text-xs text-[var(--muted-foreground)]">没有匹配的图标</span>
+                )}
               </div>
             </div>
 

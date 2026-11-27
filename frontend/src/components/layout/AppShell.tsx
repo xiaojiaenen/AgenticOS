@@ -3,12 +3,12 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 import {
+  ArrowLeft,
   BarChart2,
   Bot,
   ChevronLeft,
   ChevronRight,
   GitBranch,
-  Globe,
   Loader2,
   Mail,
   Menu,
@@ -18,16 +18,15 @@ import {
   PanelLeftOpen,
   Plug,
   Plus,
-  Presentation,
   Search,
   Sparkles,
-  Table2,
   Trash2,
   Webhook,
   X,
 } from 'lucide-react';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Logo } from '../Logo';
+import { getAgentIcon } from '../ui/AgentIcon';
 import { ADMIN_NAV_GROUPS } from '../../config/adminNav';
 import { useForesight } from '@foresightjs/react';
 import { prefetchRoute } from '../../lib/foresight';
@@ -123,25 +122,13 @@ const PrefetchNavButton: React.FC<{
   );
 };
 
-/** 会话图标：优先按智能体 slug，其次按 mode（内置智能体与 mode 一一对应）。 */
-function getSessionTone(slugOrMode?: string): {
+/** 会话图标：全站统一按智能体 avatar 取（与智能体广场/编辑器一致）。 */
+function getSessionTone(avatar?: string | null): {
   toneClass: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
 } {
-  switch ((slugOrMode || '').toLowerCase()) {
-    case 'ppt':
-      return { toneClass: 'aos-tone-amber', Icon: Presentation };
-    case 'website':
-      return { toneClass: 'aos-tone-sky', Icon: Globe };
-    case 'office':
-      return { toneClass: 'aos-tone-emerald', Icon: Table2 };
-    case 'email':
-      return { toneClass: 'aos-tone-rose', Icon: Mail };
-    case 'general':
-      return { toneClass: 'aos-tone-violet', Icon: Sparkles };
-    default:
-      return { toneClass: 'aos-tone-violet', Icon: MessageSquare };
-  }
+  const { Icon, tone } = getAgentIcon(avatar);
+  return { toneClass: tone, Icon };
 }
 
 /**
@@ -159,6 +146,7 @@ export const AppShell: React.FC = () => {
 
   const storeSessions = useChatStore((s) => s.sessions);
   const setStoreSessions = useChatStore((s) => s.setSessions);
+  const agentProfiles = useChatStore((s) => s.agentProfiles);
   const currentSessionId = useChatStore((s) => s.currentSessionId);
   const setCurrentSessionId = useChatStore((s) => s.setCurrentSessionId);
 
@@ -413,7 +401,7 @@ export const AppShell: React.FC = () => {
 
                 {recentPreviewSessions.length > 0 ? (
                   recentPreviewSessions.map((session) => {
-                    const { toneClass, Icon: ModeIcon } = getSessionTone(session.agentProfileSlug || session.mode);
+                    const { toneClass, Icon: ModeIcon } = getSessionTone(agentProfiles.find((a) => a.id === session.agentProfileId || a.slug === session.agentProfileSlug)?.avatar || session.agentProfileSlug || session.mode);
                     const isCurrent =
                       location.pathname.startsWith('/chat') && currentSessionId === session.id;
                     return (
@@ -510,7 +498,7 @@ export const AppShell: React.FC = () => {
                   filteredSessions.map((session) => {
                     const isCurrent =
                       location.pathname.startsWith('/chat') && currentSessionId === session.id;
-                    const { toneClass, Icon: ModeIcon } = getSessionTone(session.agentProfileSlug || session.mode);
+                    const { toneClass, Icon: ModeIcon } = getSessionTone(agentProfiles.find((a) => a.id === session.agentProfileId || a.slug === session.agentProfileSlug)?.avatar || session.agentProfileSlug || session.mode);
                     return (
                       <div
                         key={session.id}
@@ -557,17 +545,19 @@ export const AppShell: React.FC = () => {
               </div>
             </div>
 
-            {/* 面板 3：企业后台功能导航（分组可展开，点击直达对应面板） */}
-            <div className="flex h-full w-1/3 shrink-0 flex-col overflow-hidden pl-1">
-              <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5">
-                <span className="text-[12px] font-semibold text-[var(--foreground)]">企业后台</span>
+            {/* 面板 3：企业后台功能导航（与主侧栏同风格，左上角可返回主导航） */}
+            <div className="flex h-full w-1/3 shrink-0 flex-col gap-3 overflow-hidden pl-1">
+              <div className="flex items-center gap-2 px-1.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => { setActivePanel('nav'); navigate('/'); }}
-                  className="aos-pill-btn !py-0.5 !px-2 !text-[10px]"
+                  onClick={() => setActivePanel('nav')}
+                  aria-label="返回主导航"
+                  title="返回主导航"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
                 >
-                  退出后台
+                  <ArrowLeft size={16} />
                 </button>
+                <span className="text-[13px] font-semibold text-[var(--foreground)]">企业后台</span>
               </div>
               <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-0.5">
                 {ADMIN_NAV_GROUPS.map((group) => {
@@ -577,7 +567,7 @@ export const AppShell: React.FC = () => {
                   const expanded = expandedAdminGroups.includes(group.key);
                   const GroupIcon = group.icon;
                   return (
-                    <div key={group.key} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/40 p-1">
+                    <div key={group.key} className="flex flex-col gap-0.5">
                       <button
                         type="button"
                         onClick={() =>
@@ -586,15 +576,19 @@ export const AppShell: React.FC = () => {
                             prev.includes(group.key) && prev.length === 1 ? [] : [group.key],
                           )
                         }
-                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11.5px] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-2)]"
+                        className="aos-nav-item justify-between !text-[12.5px] font-semibold"
                       >
-                        <GroupIcon size={14} className="shrink-0 text-[var(--muted-foreground)]" />
-                        <span className="flex-1 truncate">{group.label}</span>
-                        <span className="text-[10px] text-[var(--muted-foreground)]">{allowed.length}</span>
-                        <ChevronRight size={12} className={cn('shrink-0 transition-transform', expanded && 'rotate-90')} />
+                        <span className="flex items-center gap-2.5 truncate">
+                          <GroupIcon size={16} className="shrink-0" />
+                          <span className="truncate">{group.label}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="aos-nav-badge rounded-full px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums">{allowed.length}</span>
+                          <ChevronRight size={12} className={cn('shrink-0 transition-transform', expanded && 'rotate-90')} />
+                        </span>
                       </button>
                       {expanded && (
-                        <div className="mt-0.5 flex flex-col gap-0.5 pb-1">
+                        <div className="ml-3 flex flex-col gap-0.5 border-l border-[var(--border-subtle)] pl-1.5">
                           {allowed.map((item) => {
                             const ItemIcon = item.icon;
                             const active = location.hash.replace('#', '') === item.tab;
@@ -607,12 +601,14 @@ export const AppShell: React.FC = () => {
                                   window.location.hash = item.tab;
                                 }}
                                 className={cn(
-                                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]',
-                                  active && 'bg-[var(--surface-2)] font-semibold text-[var(--foreground)]',
+                                  'aos-nav-item !py-1.5 !text-[12px]',
+                                  active && 'active',
                                 )}
                               >
-                                <ItemIcon size={13} className="shrink-0" />
-                                <span className="truncate">{item.label}</span>
+                                <span className="flex items-center gap-2.5 truncate">
+                                  <ItemIcon size={14} className="shrink-0" />
+                                  <span className="truncate">{item.label}</span>
+                                </span>
                               </button>
                             );
                           })}
