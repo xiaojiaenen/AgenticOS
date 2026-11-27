@@ -28,13 +28,15 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Logo } from '../Logo';
+import { ADMIN_NAV_GROUPS } from '../../config/adminNav';
+import { usePermission } from '../../hooks/usePermission';
 import { cn } from '../../lib/utils';
 import { canEnterAdmin, getStoredUser } from '@/services/authTokenStore';
 import { useChatStore } from '../../stores/chatStore';
 import { listSessions, deleteSession as deleteSessionApi } from '../../services/agentService';
 import type { Session } from '../../types';
 
-type SidebarPanel = 'nav' | 'chats';
+type SidebarPanel = 'nav' | 'chats' | 'admin';
 type UtilityModalType = 'market' | 'email' | 'usage' | null;
 
 interface NavItem {
@@ -96,8 +98,10 @@ export const AppShell: React.FC = () => {
   const [manualCollapsed, setManualCollapsed] = useState<boolean>(false);
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
   const [activePanel, setActivePanel] = useState<SidebarPanel>(() =>
-    location.pathname.startsWith('/chat') ? 'chats' : 'nav',
+    location.pathname.startsWith('/chat') ? 'chats' : location.pathname.startsWith('/admin') ? 'admin' : 'nav',
   );
+  const { can: canPerm } = usePermission();
+  const [expandedAdminGroups, setExpandedAdminGroups] = useState<string[]>([]);
   const [chatSearch, setChatSearch] = useState('');
   const [loadingSessions, setLoadingSessions] = useState(false);
 
@@ -109,9 +113,9 @@ export const AppShell: React.FC = () => {
 
   useEffect(() => {
     setMobileOpen(false);
-    if (!location.pathname.startsWith('/chat')) {
-      setActivePanel('nav');
-    }
+    if (location.pathname.startsWith('/chat')) setActivePanel('chats');
+    else if (location.pathname.startsWith('/admin')) setActivePanel('admin');
+    else setActivePanel('nav');
   }, [location.pathname]);
 
   useEffect(() => {
@@ -244,8 +248,10 @@ export const AppShell: React.FC = () => {
     const dy = e.clientY - swipeStartRef.current.y;
     swipeStartRef.current = null;
     if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) {
-      if (dx < 0) setActivePanel('chats');
-      else setActivePanel('nav');
+      const order: SidebarPanel[] = ['nav', 'chats', 'admin'];
+      const idx = order.indexOf(activePanel);
+      const next = dx < 0 ? Math.min(idx + 1, order.length - 1) : Math.max(idx - 1, 0);
+      setActivePanel(order[next]);
     }
   };
 
@@ -292,12 +298,14 @@ export const AppShell: React.FC = () => {
           className="relative min-h-0 flex-1 overflow-hidden"
         >
           <motion.div
-            animate={{ x: activePanel === 'nav' ? '0%' : '-50%' }}
+            animate={{
+              x: activePanel === 'nav' ? '0%' : activePanel === 'chats' ? '-33.333%' : '-66.666%',
+            }}
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="flex h-full w-[200%]"
+            className="flex h-full w-[300%]"
           >
             {/* 面板 1：主导航 + 分割线 + 最近会话（1:1 复刻原型截图左侧栏） */}
-            <div className="flex h-full w-1/2 shrink-0 flex-col gap-3 overflow-hidden pr-0.5">
+            <div className="flex h-full w-1/3 shrink-0 flex-col gap-3 overflow-hidden pr-0.5">
               <nav className="flex shrink-0 flex-col gap-1" aria-label="主导航">
                 {navItems.map((item) => {
                   const Icon = item.icon;
@@ -380,7 +388,7 @@ export const AppShell: React.FC = () => {
             </div>
 
             {/* 面板 2：完整对话列表（带新建、搜索与删除，支持右滑返回主导航） */}
-            <div className="flex h-full w-1/2 shrink-0 flex-col pl-1">
+            <div className="flex h-full w-1/3 shrink-0 flex-col pl-1">
               <div className="mb-2 flex items-center gap-1.5">
                 <button
                   type="button"
@@ -489,6 +497,71 @@ export const AppShell: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* 面板 3：企业后台功能导航（分组可展开，点击直达对应面板） */}
+            <div className="flex h-full w-1/3 shrink-0 flex-col overflow-hidden pl-1">
+              <div className="flex items-center justify-between px-2.5 pb-2 pt-0.5">
+                <span className="text-[12px] font-semibold text-[var(--foreground)]">企业后台</span>
+                <button
+                  type="button"
+                  onClick={() => { setActivePanel('nav'); navigate('/'); }}
+                  className="aos-pill-btn !py-0.5 !px-2 !text-[10px]"
+                >
+                  退出后台
+                </button>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-0.5">
+                {ADMIN_NAV_GROUPS.map((group) => {
+                  const allowed = group.items.filter((it) => canPerm(it.cap));
+                  if (allowed.length === 0) return null;
+                  const expanded = expandedAdminGroups.includes(group.key);
+                  const GroupIcon = group.icon;
+                  return (
+                    <div key={group.key} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/40 p-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedAdminGroups((prev) =>
+                            prev.includes(group.key) ? prev.filter((k) => k !== group.key) : [...prev, group.key],
+                          )
+                        }
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11.5px] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-2)]"
+                      >
+                        <GroupIcon size={14} className="shrink-0 text-[var(--muted-foreground)]" />
+                        <span className="flex-1 truncate">{group.label}</span>
+                        <span className="text-[10px] text-[var(--muted-foreground)]">{allowed.length}</span>
+                        <ChevronRight size={12} className={cn('shrink-0 transition-transform', expanded && 'rotate-90')} />
+                      </button>
+                      {expanded && (
+                        <div className="mt-0.5 flex flex-col gap-0.5 pb-1">
+                          {allowed.map((item) => {
+                            const ItemIcon = item.icon;
+                            const active = location.hash.replace('#', '') === item.tab;
+                            return (
+                              <button
+                                key={item.tab}
+                                type="button"
+                                onClick={() => {
+                                  if (!location.pathname.startsWith('/admin')) navigate('/admin');
+                                  window.location.hash = item.tab;
+                                }}
+                                className={cn(
+                                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]',
+                                  active && 'bg-[var(--surface-2)] font-semibold text-[var(--foreground)]',
+                                )}
+                              >
+                                <ItemIcon size={13} className="shrink-0" />
+                                <span className="truncate">{item.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </motion.div>
         </div>
 
@@ -512,6 +585,17 @@ export const AppShell: React.FC = () => {
               activePanel === 'chats' ? 'w-5 bg-[var(--primary)]' : 'w-1.5 bg-[var(--border-strong)]',
             )}
           />
+          {showAdmin && (
+            <button
+              type="button"
+              onClick={() => setActivePanel('admin')}
+              aria-label="后台功能面板"
+              className={cn(
+                'h-1.5 rounded-full transition-all cursor-pointer border-0 p-0',
+                activePanel === 'admin' ? 'w-5 bg-[var(--primary)]' : 'w-1.5 bg-[var(--border-strong)]',
+              )}
+            />
+          )}
         </div>
       </div>
     );
@@ -688,7 +772,11 @@ export const AppShell: React.FC = () => {
                   {showAdmin && (
                     <button
                       type="button"
-                      onClick={() => navigate('/admin')}
+                      onClick={() => {
+                        if (!location.pathname.startsWith('/admin')) navigate('/admin');
+                        setActivePanel('admin');
+                        setExpandedAdminGroups((prev) => prev.length ? prev : [ADMIN_NAV_GROUPS[0].key]);
+                      }}
                       className="aos-cta-pill !py-1 !px-3.5 !text-[11.5px]"
                     >
                       企业后台
