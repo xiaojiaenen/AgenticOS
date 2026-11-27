@@ -136,6 +136,7 @@ export type Session = {
   updatedAt: number;
   mode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
   agentProfileId?: number | null;
+  agentProfileSlug?: string;
   agentName?: string;
   summary?: string | null;
   contextCompressed?: boolean;

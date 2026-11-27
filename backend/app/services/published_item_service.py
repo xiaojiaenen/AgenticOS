@@ -219,6 +219,15 @@ class PublishedItemService:
                     self._materialize(item)
                     db.commit()
                     db.refresh(item)
+                    # 发布成功送额度：按产物类型奖励作者当日 token 额度
+                    try:
+                        from app.services.quota_service import grant_publish_reward
+
+                        reward = grant_publish_reward(item.user_id, item.kind)
+                        if reward:
+                            _logger.info("发布奖励额度: user=%s kind=%s reward=%d", item.user_id, item.kind, reward)
+                    except Exception:  # noqa: BLE001 —— 奖励失败不影响发布
+                        _logger.warning("发布奖励发放失败: id=%s", item_id, exc_info=True)
                 except Exception as exc:  # noqa: BLE001
                     _logger.exception("发布物化失败: id=%s", item_id)
                     item.status = "failed"

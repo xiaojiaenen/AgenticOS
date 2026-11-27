@@ -23,6 +23,8 @@ export function convertBackendSession(s: AgentSessionListItem): Session {
     messageCount: s.message_count,
     mode: (s.metadata?.response_mode as Session['mode']) || undefined,
     agentProfileId: (s.metadata?.agent_profile_id as number) ?? undefined,
+    agentProfileSlug: (s.metadata?.agent_profile_slug as string) ?? undefined,
+    agentName: (s.metadata?.agent_profile_name as string) ?? undefined,
   };
 
 }

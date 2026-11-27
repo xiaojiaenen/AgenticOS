@@ -113,16 +113,35 @@ def quota_overview(
 # ── 配额管理 ──────────────────────────────────────────────────────────
 
 
-@router.get("/quota", summary="读取每日 Token 配额配置")
+@router.get("/quota", summary="读取配额配置（token/image + 个人覆盖）")
 def read_quota(_: UserModel = Depends(require_perm("settings:edit"))) -> dict[str, Any]:
     from app.db.session import SessionLocal
+    from app.services.quota_service import IMAGE_QUOTA_KEY, get_eff_quota
 
     with SessionLocal() as db:
-        return get_daily_quota_config(db)
+        cfg = get_daily_quota_config(db)
+        # 全局 image 额度
+        img_row = db.get(SystemSettingModel, IMAGE_QUOTA_KEY)
+        cfg["daily_image_quota"] = int(img_row.value) if img_row and img_row.value.strip() and img_row.value.isdigit() else 0
+        # 所有个人覆盖（key 形如 quota.user.{uid}.{kind}）
+        overrides: dict[str, dict[str, int]] = {}
+        for row in db.query(SystemSettingModel).all():
+            parts = row.key.split(".")
+            if len(parts) == 4 and parts[0] == "quota" and parts[1] == "user" and parts[3] in ("token", "image"):
+                uid = parts[2]
+                try:
+                    overrides.setdefault(uid, {})[parts[3]] = int(row.value)
+                except ValueError:
+                    continue
+        cfg["user_overrides"] = overrides
+        return cfg
 
 
 class QuotaUpdateRequest(BaseModel):
-    daily_token_quota: int = Field(ge=0, le=10_000_000_000, description="0 = 关闭配额")
+    daily_token_quota: int | None = Field(default=None, ge=0, le=10_000_000_000, description="0 = 关闭配额")
+    daily_image_quota: int | None = Field(default=None, ge=0, le=100_000, description="每日生图张数，0 = 关闭")
+    user_id: int | None = Field(default=None, description="指定用户个人覆盖；不传=改全局默认")
+    kind: str | None = Field(default=None, description="个人额度类型：token/image")
 
 
 @router.put("/quota", summary="调整每日 Token 配额（0 = 关闭）")
@@ -131,12 +150,26 @@ def update_quota(
     current_user: UserModel = Depends(require_perm("settings:edit")),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    row = db.get(SystemSettingModel, QUOTA_KEY)
-    if row is None:
-        row = SystemSettingModel(key=QUOTA_KEY, value=str(payload.daily_token_quota))
-        db.add(row)
+    from app.services.quota_service import IMAGE_QUOTA_KEY, _user_quota_key
+
+    # 个人覆盖 or 全局默认
+    if payload.user_id and payload.kind in ("token", "image"):
+        key = _user_quota_key(payload.user_id, payload.kind)
+        value = payload.daily_token_quota if payload.kind == "token" else payload.daily_image_quota
+        if value is None:
+            raise HTTPException(status_code=400, detail="缺少额度值")
+    elif payload.daily_image_quota is not None:
+        key, value = IMAGE_QUOTA_KEY, payload.daily_image_quota
+    elif payload.daily_token_quota is not None:
+        key, value = QUOTA_KEY, payload.daily_token_quota
     else:
-        row.value = str(payload.daily_token_quota)
+        raise HTTPException(status_code=400, detail="没有要更新的额度")
+
+    row = db.get(SystemSettingModel, key)
+    if row is None:
+        db.add(SystemSettingModel(key=key, value=str(value)))
+    else:
+        row.value = str(value)
         row.updated_at = app_now()
     db.commit()
     audit_service.record(
@@ -144,10 +177,10 @@ def update_quota(
         action="admin.quota.update",
         actor=current_user,
         resource_type="system_setting",
-        resource_id=QUOTA_KEY,
-        detail={"daily_token_quota": payload.daily_token_quota},
+        resource_id=key,
+        detail={"key": key, "value": value},
     )
-    return {"source": "database", "daily_token_quota": payload.daily_token_quota}
+    return {"source": "database", "key": key, "value": value}
 
 
 # ── 批量操作 ──────────────────────────────────────────────────────────

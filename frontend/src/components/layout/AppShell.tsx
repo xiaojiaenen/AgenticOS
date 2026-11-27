@@ -54,11 +54,12 @@ const PRIMARY_NAV: NavItem[] = [
   { key: 'canvas', label: '创作画布', path: '/canvas', icon: Palette, match: (p) => p.startsWith('/canvas') },
 ];
 
-function getSessionTone(mode?: string): {
+/** 会话图标：优先按智能体 slug，其次按 mode（内置智能体与 mode 一一对应）。 */
+function getSessionTone(slugOrMode?: string): {
   toneClass: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
 } {
-  switch (mode) {
+  switch ((slugOrMode || '').toLowerCase()) {
     case 'ppt':
       return { toneClass: 'aos-tone-amber', Icon: Presentation };
     case 'website':
@@ -67,6 +68,8 @@ function getSessionTone(mode?: string): {
       return { toneClass: 'aos-tone-emerald', Icon: Table2 };
     case 'email':
       return { toneClass: 'aos-tone-rose', Icon: Mail };
+    case 'general':
+      return { toneClass: 'aos-tone-violet', Icon: Sparkles };
     default:
       return { toneClass: 'aos-tone-violet', Icon: MessageSquare };
   }
@@ -186,7 +189,7 @@ export const AppShell: React.FC = () => {
 
   // 最近会话：渲染全部，由 flex-1 容器 + 底部渐隐决定显示多少，
   // 不再用像素计算硬切条数（之前会切断最后半行、出现难看的滚动条）。
-  const recentPreviewSessions = storeSessions;
+  const recentPreviewSessions = storeSessions.slice(0, 3);
 
   const cmdMatches = useMemo(() => {
     const q = cmdQuery.trim().toLowerCase();
@@ -312,7 +315,11 @@ export const AppShell: React.FC = () => {
                     <button
                       key={item.key}
                       type="button"
-                      onClick={() => navigate(item.path)}
+                      onClick={() => {
+                        // 点主导航任何项都滑回对应面板，避免停留在后台面板回不来
+                        setActivePanel(item.key === 'chat' ? 'chats' : 'nav');
+                        navigate(item.path);
+                      }}
                       aria-current={active ? 'page' : undefined}
                       className={cn('aos-nav-item justify-between', active && 'active')}
                     >
@@ -349,7 +356,7 @@ export const AppShell: React.FC = () => {
 
                 {recentPreviewSessions.length > 0 ? (
                   recentPreviewSessions.map((session) => {
-                    const { toneClass, Icon: ModeIcon } = getSessionTone(session.mode);
+                    const { toneClass, Icon: ModeIcon } = getSessionTone(session.agentProfileSlug || session.mode);
                     const isCurrent =
                       location.pathname.startsWith('/chat') && currentSessionId === session.id;
                     return (
@@ -449,7 +456,7 @@ export const AppShell: React.FC = () => {
                   filteredSessions.map((session) => {
                     const isCurrent =
                       location.pathname.startsWith('/chat') && currentSessionId === session.id;
-                    const { toneClass, Icon: ModeIcon } = getSessionTone(session.mode);
+                    const { toneClass, Icon: ModeIcon } = getSessionTone(session.agentProfileSlug || session.mode);
                     return (
                       <div
                         key={session.id}
@@ -520,8 +527,9 @@ export const AppShell: React.FC = () => {
                       <button
                         type="button"
                         onClick={() =>
+                          // 手风琴：展开当前组，其余收缩；再点当前组则全部收起
                           setExpandedAdminGroups((prev) =>
-                            prev.includes(group.key) ? prev.filter((k) => k !== group.key) : [...prev, group.key],
+                            prev.includes(group.key) && prev.length === 1 ? [] : [group.key],
                           )
                         }
                         className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11.5px] font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-2)]"

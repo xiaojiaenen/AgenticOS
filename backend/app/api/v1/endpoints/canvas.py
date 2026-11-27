@@ -46,6 +46,15 @@ def _save_output(user_id: int, session_id: str, data: bytes, ext: str, stem: str
     return name
 
 
+@router.get("/quota", summary="当前用户的额度总览（token/生图/发布奖励）")
+async def canvas_quota(
+    user: UserModel = Depends(require_perm("image:create")),
+) -> dict[str, Any]:
+    from app.services.quota_service import get_user_quota_status
+
+    return get_user_quota_status(user.id, role=user.role)
+
+
 @router.get("/artifacts", summary="列出当前用户所有图片产物（画布作品来源）")
 async def canvas_artifacts(
     user: UserModel = Depends(require_perm("image:create")),
@@ -106,6 +115,14 @@ async def canvas_generate(
     prompt = (prompt or "").strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="prompt 不能为空")
+
+    # 生图额度检查（每日张数，管理员豁免）
+    from app.services.quota_service import DailyQuotaExceeded, check_image_quota
+
+    try:
+        check_image_quota(user.id, role=user.role)
+    except DailyQuotaExceeded as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
 
     endpoint = resolve_image_endpoint(db, cookie_mode=COOKIE_MODE_TOOL)
     if endpoint is None:
@@ -199,6 +216,25 @@ async def canvas_generate(
         raise HTTPException(status_code=502, detail="上游未返回图片，请检查生图模型配置")
 
     filename = _save_output(user.id, session_id, raw, ext)
+    # 记一条 usage（tool_names_json 含 generate_image），供每日生图张数额度统计
+    try:
+        import json
+        from app.db.models import AgentUsageEventModel
+
+        db.add(AgentUsageEventModel(
+            user_id=user.id,
+            session_id=session_id,
+            agent_profile_id=None,
+            model_name=endpoint.model,
+            response_mode="canvas_image",
+            input_tokens=0, output_tokens=0, total_tokens=0,
+            llm_calls=1, tool_calls=1,
+            tool_names_json=json.dumps(["generate_image"]),
+        ))
+        db.commit()
+    except Exception as exc:  # noqa: BLE001 —— 记账失败不应让已生成的图丢失
+        logger.warning("画布生图 usage 记账失败", exc_info=True)
+        db.rollback()
     return {
         "filename": filename,
         "url": f"/api/v1/agent/sessions/{session_id}/outputs/{filename}",

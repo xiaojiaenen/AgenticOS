@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, BarChart3, Coins, MessageSquare, Sparkles, Wrench } from 'lucide-react';
 import { getMyUsage, type MyUsageData } from '../../services/dashboardService';
+import { apiFetch } from '../../services/apiClient';
 import { cn } from '../../lib/utils';
 import { EmptyState } from '../ui/EmptyState';
 import { ListSkeleton } from '../ui/Skeletons';
@@ -99,12 +100,24 @@ function UsageTrend({ data }: { data: MyUsageData }) {
   );
 }
 
+type QuotaStatus = {
+  token: { quota: number; used: number; bonus_today: number; remaining: number };
+  image: { quota: number; used: number; remaining: number };
+  rewards: Record<string, number>;
+};
+
 export const UsagePanel: React.FC = () => {
   const [days, setDays] = React.useState(14);
 
   const query = useQuery({
     queryKey: ['my-usage', days],
     queryFn: () => getMyUsage(days),
+    staleTime: 60_000,
+  });
+
+  const quotaQuery = useQuery({
+    queryKey: ['my-quota'],
+    queryFn: () => apiFetch<QuotaStatus>('/api/v1/canvas/quota', {}, '加载额度失败'),
     staleTime: 60_000,
   });
 
@@ -145,6 +158,50 @@ export const UsagePanel: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* 每日额度总览（类 new-api）：token / 生图，发布作品可赚额度 */}
+      {quotaQuery.data && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(() => {
+            const q = quotaQuery.data;
+            const fmt = (n: number) => (n < 0 ? '不限' : n.toLocaleString('zh-CN'));
+            return (
+              <>
+                <div className="aos-glass-surface rounded-2xl border border-[var(--border-subtle)] p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[var(--foreground)]">今日 Token 额度</span>
+                    <Coins size={15} className="text-[var(--muted-foreground)]" />
+                  </div>
+                  <p className="mt-2 text-xl font-bold tabular-nums text-[var(--foreground)]">
+                    {fmt(q.token.remaining)} <span className="text-xs font-normal text-[var(--muted-foreground)]">剩余</span>
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                    已用 {q.token.used.toLocaleString('zh-CN')} / 额度 {fmt(q.token.quota)}
+                    {q.token.bonus_today > 0 && ` · 今日发布奖励 +${q.token.bonus_today.toLocaleString('zh-CN')}`}
+                  </p>
+                </div>
+                <div className="aos-glass-surface rounded-2xl border border-[var(--border-subtle)] p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[var(--foreground)]">今日 AI 生图额度</span>
+                    <Sparkles size={15} className="text-[var(--muted-foreground)]" />
+                  </div>
+                  <p className="mt-2 text-xl font-bold tabular-nums text-[var(--foreground)]">
+                    {fmt(q.image.remaining)} <span className="text-xs font-normal text-[var(--muted-foreground)]">张可用</span>
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                    已用 {q.image.used} / 额度 {fmt(q.image.quota)}
+                  </p>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
+      {quotaQuery.data && (
+        <p className="text-[11px] leading-snug text-[var(--muted-foreground)]">
+          💡 发布作品可赚额度：{Object.entries(quotaQuery.data.rewards).map(([k, v]) => `${k === 'ppt' ? 'PPT' : k === 'document' ? '文档' : k === 'sheet' ? '表格' : k === 'image' ? '图片' : k} +${v.toLocaleString('zh-CN')}`).join(' · ')} token
+        </p>
+      )}
 
       {query.isError ? (
         <ErrorBanner

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, RefreshCw, Save, Users } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Save, Sparkles, Users } from 'lucide-react';
 import { apiFetch } from '../../services/apiClient';
 import { toast } from 'sonner';
 import { toastError } from '../../lib/errors';
@@ -17,6 +17,8 @@ import { toastError } from '../../lib/errors';
 type QuotaConfig = {
   source: string;
   daily_token_quota: number;
+  daily_image_quota?: number;
+  user_overrides?: Record<string, { token?: number; image?: number }>;
   updated_at: string | null;
 };
 
@@ -52,6 +54,7 @@ export const QuotaManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingQuota, setEditingQuota] = useState<string>('');
+  const [editingImageQuota, setEditingImageQuota] = useState<string>('0');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -61,6 +64,7 @@ export const QuotaManagement: React.FC = () => {
       const body = await apiFetch<QuotaOverview>('/api/v1/admin/quota/overview?top=20');
       setOverview(body);
       setEditingQuota(String(body.config.daily_token_quota));
+      setEditingImageQuota(String(body.config.daily_image_quota ?? 0));
     } catch (err) {
       setError(toastError(err, '加载配额数据失败'));
     } finally {
@@ -80,19 +84,27 @@ export const QuotaManagement: React.FC = () => {
     }
     setSaving(true);
     try {
+      const imageValue = Number(editingImageQuota);
+      if (!Number.isFinite(imageValue) || imageValue < 0) {
+        toast.error('生图额度必须是不小于 0 的整数（0 = 关闭）');
+        return;
+      }
       await apiFetch('/api/v1/admin/quota', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ daily_token_quota: Math.round(value) }),
+        body: JSON.stringify({
+          daily_token_quota: Math.round(value),
+          daily_image_quota: Math.round(imageValue),
+        }),
       });
-      toast.success(value === 0 ? '配额已关闭（不限制）' : `每日配额已调整为 ${value.toLocaleString()}`);
+      toast.success(value === 0 ? 'Token 配额已关闭' : `每日 Token 配额 ${value.toLocaleString()} · 生图 ${imageValue} 张`);
       void load();
     } catch (err) {
       toast.error(toastError(err, '配额保存失败'));
     } finally {
       setSaving(false);
     }
-  }, [editingQuota, load]);
+  }, [editingQuota, editingImageQuota, load]);
 
   const cardBase =
     'rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm';
@@ -148,10 +160,26 @@ export const QuotaManagement: React.FC = () => {
                   {overview.config.updated_at && ` · 更新于 ${new Date(overview.config.updated_at).toLocaleString('zh-CN', { hour12: false })}`}
                 </p>
               </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--muted-foreground)]">
+                  每用户每日 AI 生图额度（张）
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editingImageQuota}
+                  onChange={(e) => setEditingImageQuota(e.target.value)}
+                  className="mt-1.5 w-44 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-0)] px-3 py-2 text-sm text-[var(--foreground)]"
+                  aria-label="每日生图额度"
+                />
+                <p className="mt-1.5 text-[11px] text-[var(--muted-foreground)]">
+                  0 = 不限张数
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => void saveQuota()}
-                disabled={saving || editingQuota === String(overview.config.daily_token_quota)}
+                disabled={saving || (editingQuota === String(overview.config.daily_token_quota) && editingImageQuota === String(overview.config.daily_image_quota ?? 0))}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-colors active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Save size={14} />
@@ -164,6 +192,27 @@ export const QuotaManagement: React.FC = () => {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* 发布奖励规则 + 个人覆盖 */}
+          <div className={cardBase}>
+            <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+              <Sparkles size={15} /> 创作激励与个性化额度
+            </h2>
+            <p className="text-[11px] leading-relaxed text-[var(--muted-foreground)]">
+              用户发布作品可赚当日 Token 额度：PPT/网站 +20K、文档/表格 +10K、图片 +5K。
+              个人覆盖额度通过 API <code className="rounded bg-[var(--surface-2)] px-1">PUT /api/v1/admin/quota</code>
+              传 <code className="rounded bg-[var(--surface-2)] px-1">user_id + kind</code> 设置，优先于全局默认。
+            </p>
+            {overview.config.user_overrides && Object.keys(overview.config.user_overrides).length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {Object.entries(overview.config.user_overrides).map(([uid, vals]) => (
+                  <span key={uid} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] text-[var(--foreground)]">
+                    用户 {uid}: {vals.token != null ? `Token ${fmtTokens(vals.token)}` : ''}{vals.image != null ? ` 生图 ${vals.image} 张` : ''}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 按用户用量 */}
