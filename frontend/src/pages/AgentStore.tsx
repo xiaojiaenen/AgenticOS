@@ -126,7 +126,7 @@ export const AgentStore = () => {
                 AI 智能体广场
               </h1>
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)] sm:text-sm">
-                按作用域与工具策略统一管理内置和自定义智能体
+                什么是智能体？就是帮你干活的小工具——写 PPT、建网站、发邮件都算。选一个直接用，或自己做一个
               </p>
             </div>
           </div>
